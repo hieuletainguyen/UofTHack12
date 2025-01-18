@@ -25,6 +25,14 @@ const PINCH_THRESHOLD = 0.1; // Increased threshold for easier detection
 // Add this constant for unfolding animations
 const UNFOLDING_DURATION = 1000; // 1 second for unfolding animation
 
+// Add this constant for palm scaling
+const PALM_SCALE = {
+  MIN_DISTANCE: 0.1,  // Minimum palm spread
+  MAX_DISTANCE: 0.4,  // Maximum palm spread
+  MIN_SCALE: 0.1,     // Minimum scale value
+  MAX_SCALE: 2.0      // Maximum scale value
+};
+
 const HoloMath = () => {
   // Refs
   const videoRef = useRef(null);
@@ -59,6 +67,7 @@ const HoloMath = () => {
   const [activeDimensionControl, setActiveDimensionControl] = useState(null);
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
   const [initialDimensionValue, setInitialDimensionValue] = useState(null);
+  const [surfaceArea, setSurfaceArea] = useState(0);
 
   // Add volume calculation function
   const calculateVolume = (shape, dimensions) => {
@@ -73,6 +82,43 @@ const HoloMath = () => {
         return (1/3) * Math.PI * Math.pow(dimensions.radius, 2) * dimensions.height;
       case 'PYRAMID':
         return (1/3) * dimensions.baseLength * dimensions.baseWidth * dimensions.height;
+      default:
+        return 0;
+    }
+  };
+
+  // Add surface area calculation function
+  const calculateSurfaceArea = (shape, dimensions) => {
+    switch (shape) {
+      case 'CUBOID':
+        return 2 * (
+          dimensions.length * dimensions.width +
+          dimensions.length * dimensions.height +
+          dimensions.width * dimensions.height
+        );
+      case 'SPHERE':
+        return 4 * Math.PI * Math.pow(dimensions.radius, 2);
+      case 'CYLINDER':
+        return 2 * Math.PI * dimensions.radius * dimensions.height + // lateral surface
+               2 * Math.PI * Math.pow(dimensions.radius, 2);        // top and bottom circles
+      case 'CONE':
+        const coneSlantHeight = Math.sqrt(
+          Math.pow(dimensions.height, 2) + Math.pow(dimensions.radius, 2)
+        );
+        return Math.PI * dimensions.radius * coneSlantHeight + // lateral surface
+               Math.PI * Math.pow(dimensions.radius, 2);   // base circle
+      case 'PYRAMID':
+        const halfBaseLength = dimensions.baseLength / 2;
+        const halfBaseWidth = dimensions.baseWidth / 2;
+        const slantHeightLength = Math.sqrt(
+          Math.pow(dimensions.height, 2) + Math.pow(halfBaseLength, 2)
+        );
+        const slantHeightWidth = Math.sqrt(
+          Math.pow(dimensions.height, 2) + Math.pow(halfBaseWidth, 2)
+        );
+        return dimensions.baseLength * dimensions.baseWidth + // base area
+               dimensions.baseLength * slantHeightWidth +    // front and back triangles
+               dimensions.baseWidth * slantHeightLength;     // left and right triangles
       default:
         return 0;
     }
@@ -186,6 +232,46 @@ const HoloMath = () => {
 
     const group = new THREE.Group();
 
+    // Function to create area label
+    const createAreaLabel = (area, position) => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 512; // Increased canvas size
+      canvas.height = 256;
+      
+      // Clear background (no gray background)
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Bigger, bolder text
+      context.font = 'Bold 90px Arial'; // Increased font size
+      context.fillStyle = '#4CAF50'; // Green color to match theme
+      context.strokeStyle = 'white'; // White outline for better visibility
+      context.lineWidth = 4;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      
+      const text = `Area: ${area.toFixed(1)}`;
+      context.strokeText(text, canvas.width/2, canvas.height/2);
+      context.fillText(text, canvas.width/2, canvas.height/2);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ 
+        map: texture,
+        sizeAttenuation: false,
+        transparent: true
+      });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.position.set(...position);
+      sprite.scale.set(0.25, 0.125, 1); // Bigger sprite size
+      
+      // Make sprite always face camera
+      sprite.onBeforeRender = function(renderer, scene, camera) {
+        sprite.quaternion.copy(camera.quaternion);
+      };
+      
+      return sprite;
+    };
+
     switch (type) {
       case 'CUBOID':
         const faces = [
@@ -197,6 +283,9 @@ const HoloMath = () => {
           { position: [4, 0, 0], rotation: [0, Math.PI, 0] }     // back
         ];
 
+        // Calculate face area
+        const faceArea = shapeDimensions.length * shapeDimensions.height;
+
         faces.forEach(face => {
           const plane = new THREE.Mesh(
             new THREE.PlaneGeometry(shapeDimensions.length, shapeDimensions.height),
@@ -205,59 +294,104 @@ const HoloMath = () => {
           plane.position.set(...face.position);
           plane.rotation.set(...face.rotation);
           group.add(plane);
+
+          // Add area label slightly in front of each face
+          const labelPos = [...face.position];
+          labelPos[2] += 0.01; // Move label much closer to surface
+          const areaLabel = createAreaLabel(faceArea, labelPos);
+          group.add(areaLabel);
         });
         break;
 
       case 'CYLINDER':
+        // Calculate areas
+        const lateralArea = 2 * Math.PI * shapeDimensions.radius * shapeDimensions.height;
+        const circleArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
+
         // Create cylinder net (rectangle + two circles)
         const cylinderBody = new THREE.Mesh(
-          new THREE.PlaneGeometry(Math.PI * 2, 2),
+          new THREE.PlaneGeometry(
+            2 * Math.PI * shapeDimensions.radius,
+            shapeDimensions.height
+          ),
           material
         );
         group.add(cylinderBody);
+        group.add(createAreaLabel(lateralArea, [0, 0, 0.01]));
 
-        // Add top and bottom circles
-        const circleGeometry = new THREE.CircleGeometry(1, 32);
+        // Add top and bottom circles with labels
+        const circleGeometry = new THREE.CircleGeometry(shapeDimensions.radius, 32);
         const topCircle = new THREE.Mesh(circleGeometry, material);
         const bottomCircle = new THREE.Mesh(circleGeometry, material);
         
-        topCircle.position.set(0, 2, 0);
-        bottomCircle.position.set(0, -2, 0);
+        const spacing = shapeDimensions.radius + 0.5; // Add spacing based on radius
+        topCircle.position.set(0, shapeDimensions.height + spacing, 0);
+        bottomCircle.position.set(0, -spacing, 0);
         
         group.add(topCircle);
         group.add(bottomCircle);
+        
+        group.add(createAreaLabel(circleArea, [0, shapeDimensions.height + spacing, 0.01]));
+        group.add(createAreaLabel(circleArea, [0, -spacing, 0.01]));
         break;
 
       case 'CONE':
+        const coneSlantHeight = Math.sqrt(
+          Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.radius, 2)
+        );
+        const arcLength = 2 * Math.PI * shapeDimensions.radius;
+        const sectorAngle = (arcLength / coneSlantHeight) * (180 / Math.PI);
+        
         // Create cone net (sector + circle)
-        const sectorGeometry = new THREE.CircleGeometry(4, 32, 0, Math.PI * 0.5);
+        const sectorGeometry = new THREE.CircleGeometry(
+          coneSlantHeight,
+          32,
+          0,
+          sectorAngle * (Math.PI / 180)
+        );
         const sector = new THREE.Mesh(sectorGeometry, material);
-        sector.position.set(0, -1, 0);
+        sector.position.set(0, 0, 0);
         
         const baseCircle = new THREE.Mesh(
-          new THREE.CircleGeometry(1, 32),
+          new THREE.CircleGeometry(shapeDimensions.radius, 32),
           material
         );
-        baseCircle.position.set(0, -3, 0);
+        baseCircle.position.set(0, -(coneSlantHeight + shapeDimensions.radius), 0);
         
         group.add(sector);
         group.add(baseCircle);
+        
+        // Add area labels
+        const coneLateralArea = Math.PI * shapeDimensions.radius * coneSlantHeight;
+        const coneBaseArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
+        
+        group.add(createAreaLabel(coneLateralArea, [0, 0, 0.1]));
+        group.add(createAreaLabel(coneBaseArea, [0, -(coneSlantHeight + shapeDimensions.radius), 0.1]));
         break;
 
       case 'PYRAMID':
+        // Calculate areas
+        const pyramidBaseArea = shapeDimensions.baseLength * shapeDimensions.baseWidth;
+        const pyramidFrontBackArea = shapeDimensions.baseLength * Math.sqrt(
+          Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.baseWidth/2, 2)
+        );
+        const pyramidSideArea = shapeDimensions.baseWidth * Math.sqrt(
+          Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.baseLength/2, 2)
+        );
+
         // Create pyramid net (square base + triangular faces)
         const base = new THREE.Mesh(
-          new THREE.PlaneGeometry(2, 2),
+          new THREE.PlaneGeometry(shapeDimensions.baseLength, shapeDimensions.baseWidth),
           material
         );
         base.position.set(0, -2, 0);
         base.rotation.set(-Math.PI/2, 0, 0);
         
         const triangleShape = new THREE.Shape();
-        triangleShape.moveTo(-1, 0);
-        triangleShape.lineTo(1, 0);
-        triangleShape.lineTo(0, 2);
-        triangleShape.lineTo(-1, 0);
+        triangleShape.moveTo(-shapeDimensions.baseLength/2, 0);
+        triangleShape.lineTo(shapeDimensions.baseLength/2, 0);
+        triangleShape.lineTo(0, shapeDimensions.height);
+        triangleShape.lineTo(-shapeDimensions.baseLength/2, 0);
 
         // Create four triangular faces
         for (let i = 0; i < 4; i++) {
@@ -275,9 +409,15 @@ const HoloMath = () => {
         }
         
         group.add(base);
+        group.add(createAreaLabel(pyramidBaseArea, [0, -2, 0.1]));
+        group.add(createAreaLabel(pyramidFrontBackArea, [2, 0, 0.1]));
+        group.add(createAreaLabel(pyramidSideArea, [-2, 0, 0.1]));
         break;
 
       case 'SPHERE':
+        // Calculate areas
+        const sphereArea = 4 * Math.PI * Math.pow(shapeDimensions.radius, 2);
+
         // Create a simplified sphere net (like a world map projection)
         const segments = 8;
         const rows = 4;
@@ -301,16 +441,11 @@ const HoloMath = () => {
             group.add(panel);
           }
         }
+        group.add(createAreaLabel(sphereArea, [0, 0, 0.1]));
         break;
 
       default:
-        // Return a simple placeholder for unsupported shapes
-        const placeholder = new THREE.Mesh(
-          new THREE.PlaneGeometry(2, 2),
-          material
-        );
-        group.add(placeholder);
-        break;
+        return null;
     }
 
     group.scale.set(0.5, 0.5, 0.5);
@@ -326,13 +461,18 @@ const HoloMath = () => {
       return;
     }
 
-    results.multiHandLandmarks.forEach((landmarks, index) => {
-      const isLeftHand = results.multiHandedness[index].label === 'Left';
+    // Sort hands to ensure consistent left/right hand detection
+    const sortedHands = results.multiHandLandmarks.map((landmarks, index) => ({
+      landmarks,
+      isLeft: results.multiHandedness[index].label === 'Left'
+    })).sort((a, b) => a.isLeft ? -1 : 1);
+
+    sortedHands.forEach(({ landmarks, isLeft }) => {
       const indexFinger = landmarks[8];
       const x = (1 - indexFinger.x) * window.innerWidth;
       const y = indexFinger.y * window.innerHeight;
 
-      if (isLeftHand) {
+      if (isLeft) {
         setCursorPosition({ x, y });
 
         // Check for pinch gesture
@@ -342,34 +482,60 @@ const HoloMath = () => {
           Math.pow(thumbTip.y - indexFinger.y, 2)
         );
         const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
+        setIsPinching(isPinchGesture);
+
+        // Handle all interactive elements
+        const handleInteraction = (element, onPinch) => {
+          if (!element) return;
+          const rect = element.getBoundingClientRect();
+          const isOverElement = x >= rect.left && x <= rect.right && 
+                              y >= rect.top && y <= rect.bottom;
+
+          if (isOverElement) {
+            element.classList.add('highlighted');
+            if (isPinchGesture && !lastPinchStateRef.current) {
+              onPinch();
+            }
+          } else {
+            element.classList.remove('highlighted');
+          }
+        };
 
         // Handle shape buttons
         const shapeButtons = document.querySelectorAll('.shape-button');
         shapeButtons.forEach(button => {
-          const rect = button.getBoundingClientRect();
-          const isOverButton = x >= rect.left && x <= rect.right && 
-                              y >= rect.top && y <= rect.bottom;
-
-          if (isOverButton) {
-            button.classList.add('highlighted');
+          handleInteraction(button, () => {
             const shape = button.getAttribute('data-shape');
-            
-            if (isPinchGesture && !lastPinchStateRef.current) {
-              setCurrentShape(shape);
-              // Reset dimensions when changing shapes
-              setShapeDimensions({
-                length: 1,
-                width: 1,
-                height: 1,
-                radius: 1,
-                baseLength: 1,
-                baseWidth: 1
-              });
-              setIsUnfolded(false);
-            }
-          } else {
-            button.classList.remove('highlighted');
-          }
+            setCurrentShape(shape);
+            setShapeDimensions({
+              length: 1,
+              width: 1,
+              height: 1,
+              radius: 1,
+              baseLength: 1,
+              baseWidth: 1
+            });
+            setIsUnfolded(false);
+          });
+        });
+
+        // Handle dimension buttons
+        const dimensionButtons = document.querySelectorAll('.dimension-button');
+        dimensionButtons.forEach(button => {
+          handleInteraction(button, () => {
+            const dimension = button.getAttribute('data-dimension');
+            const value = parseFloat(button.getAttribute('data-value'));
+            setShapeDimensions(prev => ({
+              ...prev,
+              [dimension]: value
+            }));
+          });
+        });
+
+        // Handle unfold button
+        const unfoldButton = document.getElementById('unfold-button');
+        handleInteraction(unfoldButton, () => {
+          setIsUnfolded(prev => !prev);
         });
 
         lastPinchStateRef.current = isPinchGesture;
@@ -480,17 +646,15 @@ const HoloMath = () => {
     }
   }, []);
 
-  // Update shape when dimensions, shape type, or unfolded state changes
+  // Update shape when changed
   useEffect(() => {
     if (sceneRef.current && currentObjectRef.current) {
-      const newShape = isUnfolded ? create2DNet(currentShape) : createShape(currentShape);
-      if (newShape) {
-        sceneRef.current.remove(currentObjectRef.current);
-        sceneRef.current.add(newShape);
-        currentObjectRef.current = newShape;
-      }
+      sceneRef.current.remove(currentObjectRef.current);
+      const newShape = createShape(currentShape);
+      sceneRef.current.add(newShape);
+      currentObjectRef.current = newShape;
     }
-  }, [currentShape, shapeDimensions, isUnfolded]);
+  }, [currentShape, shapeDimensions]);
 
   // Add effect to handle unfolding animation
   useEffect(() => {
@@ -516,49 +680,17 @@ const HoloMath = () => {
   // Add effect to update volume when dimensions or shape changes
   useEffect(() => {
     const newVolume = calculateVolume(currentShape, shapeDimensions);
-    setVolume(newVolume);
-  }, [currentShape, shapeDimensions]);
+    const newSurfaceArea = calculateSurfaceArea(currentShape, shapeDimensions);
+    setVolume(newVolume * Math.pow(scale, 3));
+    setSurfaceArea(newSurfaceArea * Math.pow(scale, 2));
+  }, [currentShape, shapeDimensions, scale]);
 
-  // Simplify the handleDimensionButtonClick function
+  // Add this function to handle button clicks
   const handleDimensionButtonClick = (dimension, value) => {
-    setShapeDimensions(prev => {
-      const newDimensions = {
-        ...prev,
-        [dimension]: value
-      };
-      return newDimensions;
-    });
-  };
-
-  // Add this function to handle shape button clicks
-  const handleShapeButtonClick = (shape) => {
-    console.log('Changing shape to:', shape); // Add debug log
-    
-    // Update shape
-    setCurrentShape(shape);
-    
-    // Reset dimensions
-    setShapeDimensions({
-      length: 1,
-      width: 1,
-      height: 1,
-      radius: 1,
-      baseLength: 1,
-      baseWidth: 1
-    });
-    
-    // Reset unfolded state
-    setIsUnfolded(false);
-    
-    // Force shape update
-    if (sceneRef.current && currentObjectRef.current) {
-      const newShape = createShape(shape);
-      if (newShape) {
-        sceneRef.current.remove(currentObjectRef.current);
-        sceneRef.current.add(newShape);
-        currentObjectRef.current = newShape;
-      }
-    }
+    setShapeDimensions(prev => ({
+      ...prev,
+      [dimension]: value
+    }));
   };
 
   return (
@@ -573,13 +705,26 @@ const HoloMath = () => {
         }}
       />
 
-      {/* Shape selection buttons */}
+      {/* Shape change button */}
       <div className="shape-buttons">
         {SHAPES.map(shape => (
           <div 
             key={shape}
-            className={`shape-button ${currentShape === shape ? 'active' : ''} ${isButtonHighlighted && shape === currentShape ? 'highlighted' : ''}`}
+            className={`shape-button ${currentShape === shape ? 'active' : ''}`}
             data-shape={shape}
+            onClick={() => {
+              setCurrentShape(shape);
+              // Reset dimensions when changing shapes
+              setShapeDimensions({
+                length: 1,
+                width: 1,
+                height: 1,
+                radius: 1,
+                baseLength: 1,
+                baseWidth: 1
+              });
+              setIsUnfolded(false);
+            }}
           >
             {shape.charAt(0) + shape.slice(1).toLowerCase()}
           </div>
@@ -587,12 +732,12 @@ const HoloMath = () => {
       </div>
 
       {/* Unfold button */}
-      <button 
+      <div 
+        id="unfold-button"
         className={`unfold-button ${isUnfoldButtonHighlighted ? 'highlighted' : ''}`}
-        onClick={() => setIsUnfolded(prev => !prev)}
       >
         {isUnfolded ? 'Fold Shape' : 'Unfold Shape'}
-      </button>
+      </div>
 
       {/* Level selector */}
       <div className="level-selector">
@@ -610,12 +755,13 @@ const HoloMath = () => {
       <div className="controls-guide">
         <div className="left-hand">
           <h4>Left Hand</h4>
-          <p>1. Point at buttons</p>
-          <p>2. Pinch to interact</p>
+          <p>1. Point at button</p>
+          <p>2. Pinch thumb & index to change shape</p>
         </div>
         <div className="right-hand">
           <h4>Right Hand</h4>
-          <p>Move to rotate object</p>
+          <p>1. Move to rotate object</p>
+          <p>2. Open/close palm to scale</p>
         </div>
       </div>
 
@@ -628,13 +774,15 @@ const HoloMath = () => {
               <label>Length:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.length === value ? 'active' : ''}`}
+                    data-dimension="length"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('length', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -642,13 +790,15 @@ const HoloMath = () => {
               <label>Width:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.width === value ? 'active' : ''}`}
+                    data-dimension="width"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('width', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -656,31 +806,36 @@ const HoloMath = () => {
               <label>Height:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    data-dimension="height"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('height', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
           </>
         )}
+        
         {currentShape === 'PYRAMID' && (
           <>
             <div className="dimension-buttons">
               <label>Base Length:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.baseLength === value ? 'active' : ''}`}
+                    data-dimension="baseLength"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('baseLength', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -688,13 +843,15 @@ const HoloMath = () => {
               <label>Base Width:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.baseWidth === value ? 'active' : ''}`}
+                    data-dimension="baseWidth"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('baseWidth', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -702,31 +859,36 @@ const HoloMath = () => {
               <label>Height:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    data-dimension="height"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('height', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
           </>
         )}
+        
         {(currentShape === 'CYLINDER' || currentShape === 'CONE') && (
           <>
             <div className="dimension-buttons">
               <label>Height:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    data-dimension="height"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('height', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -734,38 +896,62 @@ const HoloMath = () => {
               <label>Radius:</label>
               <div className="button-group">
                 {[1, 2, 3, 4, 5].map(value => (
-                  <button
+                  <div
                     key={value}
                     className={`dimension-button ${shapeDimensions.radius === value ? 'active' : ''}`}
+                    data-dimension="radius"
+                    data-value={value}
                     onClick={() => handleDimensionButtonClick('radius', value)}
                   >
                     {value}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
           </>
         )}
+        
         {currentShape === 'SPHERE' && (
           <div className="dimension-buttons">
             <label>Radius:</label>
             <div className="button-group">
               {[1, 2, 3, 4, 5].map(value => (
-                <button
+                <div
                   key={value}
-                  className={`dimension-button ${shapeDimensions.radius === value ? 'active' : ''} ${isButtonHighlighted && activeDimensionControl === 'radius' ? 'highlighted' : ''}`}
+                  className={`dimension-button ${shapeDimensions.radius === value ? 'active' : ''}`}
+                  data-dimension="radius"
+                  data-value={value}
                   onClick={() => handleDimensionButtonClick('radius', value)}
                 >
                   {value}
-                </button>
+                </div>
               ))}
             </div>
           </div>
         )}
 
+        {/* Add scale control */}
+        <div className="scale-control">
+          <label>Scale: </label>
+          <input
+            type="range"
+            min="0.1"
+            max="2"
+            step="0.1"
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+          />
+          <span>{scale.toFixed(1)}x</span>
+        </div>
+
         {/* Display volume */}
         <div className="volume-display">
-          <p>Volume: {volume.toFixed(2)} cubic units</p>
+          <p className={!isUnfolded ? 'highlighted' : ''}>
+            Volume: {volume.toFixed(2)} cubic units
+          </p>
+          <p className={isUnfolded ? 'highlighted' : ''}>
+            Surface Area: {surfaceArea.toFixed(2)} square units
+          </p>
         </div>
       </div>
 

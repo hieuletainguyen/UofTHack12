@@ -66,7 +66,8 @@
   transition: all 0.3s ease;
   text-align: center;
   min-width: 100px;
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .shape-button:hover,
@@ -191,11 +192,12 @@
   justify-content: center;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.3s ease;
   font-size: 16px;
   border: none;
   outline: none;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .dimension-button:hover {
@@ -230,8 +232,15 @@
 }
 
 .volume-display p {
-  margin: 0;
+  margin: 5px 0;
   font-size: 16px;
   font-weight: bold;
   color: #4CAF50;
+}
+
+/* Add highlight for surface area when unfolded */
+.volume-display p.highlighted {
+  color: #FFA500;
+  font-size: 18px;
+  text-shadow: 0 0 5px rgba(255, 165, 0, 0.5);
 } 
