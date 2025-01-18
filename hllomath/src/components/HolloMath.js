@@ -29,14 +29,6 @@ const PINCH_THRESHOLD = 0.1; // Increased threshold for easier detection
 // Add this constant for unfolding animations
 const UNFOLDING_DURATION = 1000; // 1 second for unfolding animation
 
-// Add this constant for palm scaling
-const PALM_SCALE = {
-  MIN_DISTANCE: 0.03,  // Adjusted for left hand
-  MAX_DISTANCE: 0.12,  // Adjusted for left hand
-  MIN_SCALE: 0.5,     
-  MAX_SCALE: 2.0      
-};
-
 const HoloMathOrigin = () => {
   // Refs
   const videoRef = useRef(null);
@@ -51,6 +43,7 @@ const HoloMathOrigin = () => {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const draggedFaceRef = useRef(null);
+  const canvasRef = useRef(null);
 
   // State
   const [currentShape, setCurrentShape] = useState(SHAPES[0]);
@@ -72,10 +65,55 @@ const HoloMathOrigin = () => {
   const [volume, setVolume] = useState(0);
   const [surfaceArea, setSurfaceArea] = useState(0);
   const [isHandDragging, setIsHandDragging] = useState(false);
-  const [isScalingMode, setIsScalingMode] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Add this function to draw the hand skeleton
+  const drawHand = (landmarks, isLeft) => {
+    const ctx = canvasRef.current.getContext('2d');
+    const { width, height } = canvasRef.current;
+
+    // Draw points
+    landmarks.forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(
+        point.x * width,
+        point.y * height,
+        4,
+        0,
+        3 * Math.PI
+      );
+      ctx.fillStyle = isLeft ? '#00FF00' : '#FF0000';  // Green for left, red for right
+      ctx.fill();
+    });
+
+    // Draw connections
+    const connections = [
+      [0, 1], [1, 2], [2, 3], [3, 4],           // thumb
+      [0, 5], [5, 6], [6, 7], [7, 8],           // index finger
+      [0, 9], [9, 10], [10, 11], [11, 12],      // middle finger
+      [0, 13], [13, 14], [14, 15], [15, 16],    // ring finger
+      [0, 17], [17, 18], [18, 19], [19, 20],    // pinky
+      [0, 5], [5, 9], [9, 13], [13, 17]         // palm
+    ];
+
+    connections.forEach(([i, j]) => {
+      ctx.beginPath();
+      ctx.moveTo(landmarks[i].x * width, landmarks[i].y * height);
+      ctx.lineTo(landmarks[j].x * width, landmarks[j].y * height);
+      ctx.strokeStyle = isLeft ? '#00FF00' : '#FF0000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  };
 
   // Handle hand gestures
   const handleHandGestures = (results) => {
+    // Clear the canvas first
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+
     if (!results.multiHandLandmarks || !results.multiHandLandmarks.length) {
       previousHandPositionRef.current = { x: null, y: null };
       setIsPinching(false);
@@ -90,7 +128,11 @@ const HoloMathOrigin = () => {
       isLeft: results.multiHandedness[index].label === 'Left'
     })).sort((a, b) => a.isLeft ? -1 : 1);
 
+    // Draw hands
     sortedHands.forEach(({ landmarks, isLeft }) => {
+      if (canvasRef.current) {
+        drawHand(landmarks, isLeft);
+      }
       const indexFinger = landmarks[8];
       const x = (1 - indexFinger.x) * window.innerWidth;
       const y = indexFinger.y * window.innerHeight;
@@ -103,117 +145,111 @@ const HoloMathOrigin = () => {
         mouseRef.current.x = ((x - rect.left) / rect.width) * 2 - 1;
         mouseRef.current.y = -((y - rect.top) / rect.height) * 2 + 1;
 
-        if (isScalingMode) {
-          console.log('Scaling mode is active - using left hand');
-          handlePalmScaling(landmarks);
-        } else {
-          // Regular pinch gesture handling for buttons and dragging
-          const thumbTip = landmarks[4];
-          const pinchDistance = Math.sqrt(
-            Math.pow(thumbTip.x - indexFinger.x, 2) +
-            Math.pow(thumbTip.y - indexFinger.y, 2)
-          );
-          const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
-          setIsPinching(isPinchGesture);
+        // Regular pinch gesture handling for buttons and dragging
+        const thumbTip = landmarks[4];
+        const pinchDistance = Math.sqrt(
+          Math.pow(thumbTip.x - indexFinger.x, 2) +
+          Math.pow(thumbTip.y - indexFinger.y, 2)
+        );
+        const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
+        setIsPinching(isPinchGesture);
 
-          // Handle dragging of unfolded shapes
-          if (isUnfolded) {
-            raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
-            const intersects = raycasterRef.current.intersectObjects(currentObjectRef.current.children);
+        // Handle dragging when unfolded
+        if (isUnfolded) {
+          raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+          const intersects = raycasterRef.current.intersectObjects(currentObjectRef.current.children);
 
-            if (isPinchGesture) {
-              if (!isHandDragging && intersects.length > 0) {
-                // Start dragging
-                setIsHandDragging(true);
-                draggedFaceRef.current = intersects[0].object;
-              }
-            } else {
-              // Stop dragging when pinch is released
-              setIsHandDragging(false);
-              draggedFaceRef.current = null;
+          if (isPinchGesture) {
+            if (!isHandDragging && intersects.length > 0) {
+              setIsHandDragging(true);
+              draggedFaceRef.current = intersects[0].object;
             }
-
-            // Move the dragged face
-            if (isHandDragging && draggedFaceRef.current) {
-              const planeNormal = new THREE.Vector3(0, 0, 1);
-              const plane = new THREE.Plane(planeNormal);
-              const intersection = new THREE.Vector3();
-              raycasterRef.current.ray.intersectPlane(plane, intersection);
-              
-              draggedFaceRef.current.position.x = intersection.x;
-              draggedFaceRef.current.position.y = intersection.y;
-            }
+          } else {
+            setIsHandDragging(false);
+            draggedFaceRef.current = null;
           }
 
-          // Handle all interactive elements
-          const handleInteraction = (element, onPinch) => {
-            if (!element) return;
-            const rect = element.getBoundingClientRect();
-            const isOverElement = x >= rect.left && x <= rect.right && 
-                                y >= rect.top && y <= rect.bottom;
-
-            if (isOverElement) {
-              element.classList.add('highlighted');
-              if (isPinchGesture && !lastPinchStateRef.current) {
-                onPinch();
-              }
-            } else {
-              element.classList.remove('highlighted');
-            }
-          };
-
-          // Handle shape buttons
-          const shapeButtons = document.querySelectorAll('.shape-button');
-          shapeButtons.forEach(button => {
-            handleInteraction(button, () => {
-              const shape = button.getAttribute('data-shape');
-              setCurrentShape(shape);
-              setShapeDimensions({
-                length: 1,
-                width: 1,
-                height: 1,
-                radius: 1,
-                baseLength: 1,
-                baseWidth: 1
-              });
-              setIsUnfolded(false);
-            });
-          });
-
-          // Handle dimension buttons
-          const dimensionButtons = document.querySelectorAll('.dimension-button');
-          dimensionButtons.forEach(button => {
-            handleInteraction(button, () => {
-              const dimension = button.getAttribute('data-dimension');
-              const value = parseFloat(button.getAttribute('data-value'));
-              setShapeDimensions(prev => ({
-                ...prev,
-                [dimension]: value
-              }));
-            });
-          });
-
-          // Handle unfold button
-          const unfoldButton = document.getElementById('unfold-button');
-          handleInteraction(unfoldButton, () => {
-            setIsUnfolded(prev => !prev);
-          });
-
-          // Add scale button interaction
-          const scaleButton = document.getElementById('scale-button');
-          handleInteraction(scaleButton, () => {
-            setIsScalingMode(prev => {
-              const newValue = !prev;
-              console.log('Scaling mode changed to:', newValue);
-              return newValue;
-            });
-          });
-
-          lastPinchStateRef.current = isPinchGesture;
+          // Move the dragged face
+          if (isHandDragging && draggedFaceRef.current) {
+            const planeNormal = new THREE.Vector3(0, 0, 1);
+            const plane = new THREE.Plane(planeNormal);
+            const intersection = new THREE.Vector3();
+            raycasterRef.current.ray.intersectPlane(plane, intersection);
+            
+            draggedFaceRef.current.position.x = intersection.x;
+            draggedFaceRef.current.position.y = intersection.y;
+          }
         }
+
+        // Handle button interactions
+        const handleInteraction = (element, onPinch) => {
+          if (!element) return;
+          const rect = element.getBoundingClientRect();
+          const isOverElement = x >= rect.left && x <= rect.right && 
+                              y >= rect.top && y <= rect.bottom;
+
+          if (isOverElement) {
+            element.classList.add('highlighted');
+            if (isPinchGesture && !lastPinchStateRef.current) {
+              onPinch();
+            }
+          } else {
+            element.classList.remove('highlighted');
+          }
+        };
+
+        // Handle shape buttons
+        const shapeButtons = document.querySelectorAll('.shape-button');
+        shapeButtons.forEach(button => {
+          handleInteraction(button, () => {
+            const shape = button.getAttribute('data-shape');
+            setCurrentShape(shape);
+            setShapeDimensions({
+              length: 1,
+              width: 1,
+              height: 1,
+              radius: 1,
+              baseLength: 1,
+              baseWidth: 1
+            });
+            setIsUnfolded(false);
+          });
+        });
+
+        // Handle dimension buttons
+        const dimensionButtons = document.querySelectorAll('.dimension-button');
+        dimensionButtons.forEach(button => {
+          handleInteraction(button, () => {
+            const dimension = button.getAttribute('data-dimension');
+            const value = parseFloat(button.getAttribute('data-value'));
+            setShapeDimensions(prev => ({
+              ...prev,
+              [dimension]: value
+            }));
+          });
+        });
+
+        // Handle unfold button
+        const unfoldButton = document.getElementById('unfold-button');
+        handleInteraction(unfoldButton, () => {
+          setIsUnfolded(prev => !prev);
+        });
+
+        // Handle zoom buttons
+        const zoomInButton = document.getElementById('zoom-in-button');
+        handleInteraction(zoomInButton, () => {
+          handleZoom('in');
+        });
+
+        const zoomOutButton = document.getElementById('zoom-out-button');
+        handleInteraction(zoomOutButton, () => {
+          handleZoom('out');
+        });
+
+        lastPinchStateRef.current = isPinchGesture;
       } else {
-        // Right hand only handles rotation when not in scaling mode
-        if (currentObjectRef.current && !isScalingMode) {
+        // Right hand only handles rotation
+        if (currentObjectRef.current) {
           const prev = previousHandPositionRef.current;
           if (prev.x !== null) {
             const deltaX = (x - prev.x) * 0.01;
@@ -325,30 +361,15 @@ const HoloMathOrigin = () => {
   useEffect(() => {
     if (sceneRef.current && currentObjectRef.current) {
       sceneRef.current.remove(currentObjectRef.current);
-      const newShape = createShape(currentShape, shapeDimensions, scale, currentShape);
-      sceneRef.current.add(newShape);
-      currentObjectRef.current = newShape;
-    }
-  }, [currentShape, shapeDimensions, scale, isScalingMode]);
-
-  // Add effect to handle unfolding animation
-  useEffect(() => {
-    if (currentObjectRef.current) {
-      if (isUnfolded) {
-        const net = create2DNet(currentShape, shapeDimensions, scale);
-        if (net) {
-          sceneRef.current.remove(currentObjectRef.current);
-          sceneRef.current.add(net);
-          currentObjectRef.current = net;
-        }
-      } else {
-        sceneRef.current.remove(currentObjectRef.current);
-        const shape = createShape(currentShape, shapeDimensions, scale, currentShape);
-        sceneRef.current.add(shape);
-        currentObjectRef.current = shape;
+      const newShape = isUnfolded 
+        ? create2DNet(currentShape, shapeDimensions, scale)
+        : createShape(currentShape, shapeDimensions, scale);
+      if (newShape) {
+        sceneRef.current.add(newShape);
+        currentObjectRef.current = newShape;
       }
     }
-  }, [isUnfolded, currentShape, shapeDimensions, scale, isScalingMode]);
+  }, [currentShape, shapeDimensions, scale, isUnfolded]);
 
   // Add effect to update volume when dimensions or shape changes
   useEffect(() => {
@@ -366,51 +387,25 @@ const HoloMathOrigin = () => {
     }));
   };
 
-  // Add this function to handle palm scaling
-  const handlePalmScaling = (landmarks) => {
-    if (!isScalingMode || !currentObjectRef.current) {
-      console.log('Scaling mode is disabled or no object');
-      return;
+  // Add zoom functions
+  const handleZoom = (direction) => {
+    if (direction === 'in') {
+      // Check if we can still zoom in
+      if (zoomLevel <= 2.0) {  // Use 2.0 instead of 2.1 for cleaner steps
+        const newZoom = zoomLevel + 0.5;
+        const roundedZoom = Math.round(newZoom * 10) / 10;
+        setZoomLevel(roundedZoom);
+        setScale(roundedZoom);
+      }
+    } else {
+      // Check if we can still zoom out
+      if (zoomLevel >= 0.5) {
+        const newZoom = zoomLevel - 0.5;
+        const roundedZoom = Math.round(newZoom * 10) / 10;
+        setZoomLevel(roundedZoom);
+        setScale(roundedZoom);
+      }
     }
-    
-    // Use middle finger tip and thumb tip for left hand scaling
-    const thumbTip = landmarks[4];    // thumb tip
-    const middleTip = landmarks[12];  // middle finger tip
-    
-    const palmSpread = Math.sqrt(
-      Math.pow(thumbTip.x - middleTip.x, 2) +
-      Math.pow(thumbTip.y - middleTip.y, 2)
-    );
-
-    console.log('Left hand palm spread:', palmSpread);
-
-    // Map palm spread to scale with adjusted values
-    const newScale = THREE.MathUtils.mapLinear(
-      palmSpread,
-      PALM_SCALE.MIN_DISTANCE,
-      PALM_SCALE.MAX_DISTANCE,
-      PALM_SCALE.MIN_SCALE,
-      PALM_SCALE.MAX_SCALE
-    );
-
-    // Clamp the scale value
-    const clampedScale = THREE.MathUtils.clamp(
-      newScale,
-      PALM_SCALE.MIN_SCALE,
-      PALM_SCALE.MAX_SCALE
-    );
-    
-    console.log('Mapped scale:', newScale, 'Clamped scale:', clampedScale);
-
-    // Apply scale with faster response for left hand
-    const smoothingFactor = 0.3; // Increased for faster response
-    const currentScale = currentObjectRef.current.scale.x;
-    const smoothedScale = currentScale + (clampedScale - currentScale) * smoothingFactor;
-    
-    console.log('Final smoothed scale:', smoothedScale);
-    
-    currentObjectRef.current.scale.set(smoothedScale, smoothedScale, smoothedScale);
-    setScale(smoothedScale);
   };
 
   return (
@@ -461,11 +456,19 @@ const HoloMathOrigin = () => {
         </div>
         
         <div 
-          id="scale-button"
-          className={`scale-button ${isScalingMode ? 'active' : ''}`}
-          onClick={() => setIsScalingMode(!isScalingMode)}
+          id="zoom-in-button"
+          className="zoom-button"
+          onClick={() => handleZoom('in')}
         >
-          {isScalingMode ? 'Disable Scaling' : 'Enable Scaling'}
+          🔍+
+        </div>
+        
+        <div 
+          id="zoom-out-button"
+          className="zoom-button"
+          onClick={() => handleZoom('out')}
+        >
+          🔍-
         </div>
       </div>
 
@@ -485,13 +488,12 @@ const HoloMathOrigin = () => {
       <div className="controls-guide">
         <div className="left-hand">
           <h4>Left Hand</h4>
-          <p>1. Point at button</p>
-          <p>2. Pinch thumb & index to change shape</p>
+          <p>1. Point at buttons</p>
+          <p>2. Pinch to interact</p>
         </div>
         <div className="right-hand">
           <h4>Right Hand</h4>
           <p>1. Move to rotate object</p>
-          <p>2. Open/close palm to scale</p>
         </div>
       </div>
 
@@ -665,11 +667,15 @@ const HoloMathOrigin = () => {
           <label>Scale: </label>
           <input
             type="range"
-            min="0.1"
-            max="2"
+            min="0.5"
+            max="2.0"
             step="0.1"
             value={scale}
-            onChange={(e) => setScale(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const newValue = parseFloat(e.target.value);
+              setScale(newValue);
+              setZoomLevel(newValue);
+            }}
           />
           <span>{scale.toFixed(1)}x</span>
         </div>
@@ -692,6 +698,12 @@ const HoloMathOrigin = () => {
           className="camera-feed"
           autoPlay
           playsInline
+        />
+        <canvas
+          ref={canvasRef}
+          className="hand-overlay"
+          width={640}
+          height={480}
         />
       </div>
     </div>
