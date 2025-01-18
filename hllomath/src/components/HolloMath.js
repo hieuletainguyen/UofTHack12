@@ -223,68 +223,70 @@ const HoloMath = () => {
 
   // Add this function to create 2D nets for different shapes
   const create2DNet = (type) => {
-    const material = new THREE.MeshPhongMaterial({
-      color: 0x00ff00,
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide
-    });
-
-    const group = new THREE.Group();
-
-    // Function to create area label
-    const createAreaLabel = (area, position) => {
+    // Function to create textured material with area label
+    const createTexturedMaterial = (width, height, area) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      canvas.width = 512; // Increased canvas size
-      canvas.height = 256;
+      canvas.width = 512;
+      canvas.height = 512;
       
-      // Clear background (no gray background)
-      context.clearRect(0, 0, canvas.width, canvas.height);
+      // Draw shape background with brighter green
+      context.fillStyle = '#50FF50';  // Brighter green color
+      context.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Bigger, bolder text
-      context.font = 'Bold 90px Arial'; // Increased font size
-      context.fillStyle = '#4CAF50'; // Green color to match theme
-      context.strokeStyle = 'white'; // White outline for better visibility
-      context.lineWidth = 4;
+      // Add grid lines for visual reference
+      context.strokeStyle = 'rgba(255, 255, 255, 0.4)';  // More visible grid
+      context.lineWidth = 2;
+      const gridSize = 32;
+      for (let i = 0; i <= canvas.width; i += gridSize) {
+        context.beginPath();
+        context.moveTo(i, 0);
+        context.lineTo(i, canvas.height);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(0, i);
+        context.lineTo(canvas.width, i);
+        context.stroke();
+      }
+      
+      // Draw area text with scale
+      context.font = 'Bold 64px Arial';
+      context.fillStyle = 'white';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
-      
-      const text = `Area: ${area.toFixed(1)}`;
+      context.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+      context.lineWidth = 4;
+      const scaledArea = area * Math.pow(scale, 2);  // Scale the area
+      const text = `Area: ${scaledArea.toFixed(1)}`;
       context.strokeText(text, canvas.width/2, canvas.height/2);
       context.fillText(text, canvas.width/2, canvas.height/2);
       
       const texture = new THREE.CanvasTexture(canvas);
-      const spriteMaterial = new THREE.SpriteMaterial({ 
+      texture.needsUpdate = true;
+      
+      return new THREE.MeshPhongMaterial({
         map: texture,
-        sizeAttenuation: false,
-        transparent: true
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide
       });
-      const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.position.set(...position);
-      sprite.scale.set(0.25, 0.125, 1); // Bigger sprite size
-      
-      // Make sprite always face camera
-      sprite.onBeforeRender = function(renderer, scene, camera) {
-        sprite.quaternion.copy(camera.quaternion);
-      };
-      
-      return sprite;
     };
 
+    const group = new THREE.Group();
+
     switch (type) {
-      case 'CUBOID':
+      case 'CUBOID': {
         const faces = [
-          { position: [0, 0, 0], rotation: [0, 0, 0] },        // front
-          { position: [2, 0, 0], rotation: [0, -Math.PI/2, 0] }, // right
-          { position: [-2, 0, 0], rotation: [0, Math.PI/2, 0] }, // left
-          { position: [0, 2, 0], rotation: [-Math.PI/2, 0, 0] }, // top
-          { position: [0, -2, 0], rotation: [Math.PI/2, 0, 0] }, // bottom
-          { position: [4, 0, 0], rotation: [0, Math.PI, 0] }     // back
+          { position: [0, 0, 0], rotation: [0, 0, 0] },
+          { position: [2, 0, 0], rotation: [0, -Math.PI/2, 0] },
+          { position: [-2, 0, 0], rotation: [0, Math.PI/2, 0] },
+          { position: [0, 2, 0], rotation: [-Math.PI/2, 0, 0] },
+          { position: [0, -2, 0], rotation: [Math.PI/2, 0, 0] },
+          { position: [4, 0, 0], rotation: [0, Math.PI, 0] }
         ];
 
-        // Calculate face area
         const faceArea = shapeDimensions.length * shapeDimensions.height;
+        const material = createTexturedMaterial(shapeDimensions.length, shapeDimensions.height, faceArea);
 
         faces.forEach(face => {
           const plane = new THREE.Mesh(
@@ -294,158 +296,222 @@ const HoloMath = () => {
           plane.position.set(...face.position);
           plane.rotation.set(...face.rotation);
           group.add(plane);
-
-          // Add area label slightly in front of each face
-          const labelPos = [...face.position];
-          labelPos[2] += 0.01; // Move label much closer to surface
-          const areaLabel = createAreaLabel(faceArea, labelPos);
-          group.add(areaLabel);
         });
         break;
+      }
 
-      case 'CYLINDER':
-        // Calculate areas
+      case 'CYLINDER': {
         const lateralArea = 2 * Math.PI * shapeDimensions.radius * shapeDimensions.height;
         const circleArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
 
-        // Create cylinder net (rectangle + two circles)
+        // Create cylinder body with texture (rectangle)
+        const bodyMaterial = createTexturedMaterial(
+          2 * Math.PI * shapeDimensions.radius,
+          shapeDimensions.height,
+          lateralArea
+        );
         const cylinderBody = new THREE.Mesh(
           new THREE.PlaneGeometry(
             2 * Math.PI * shapeDimensions.radius,
             shapeDimensions.height
           ),
-          material
+          bodyMaterial
         );
+        // Move the rectangle up
+        cylinderBody.position.set(0, shapeDimensions.height/2, 0);
         group.add(cylinderBody);
-        group.add(createAreaLabel(lateralArea, [0, 0, 0.01]));
 
-        // Add top and bottom circles with labels
-        const circleGeometry = new THREE.CircleGeometry(shapeDimensions.radius, 32);
-        const topCircle = new THREE.Mesh(circleGeometry, material);
-        const bottomCircle = new THREE.Mesh(circleGeometry, material);
+        // Create top and bottom circles with textures
+        const circleMaterial = createTexturedMaterial(
+          shapeDimensions.radius * 2,
+          shapeDimensions.radius * 2,
+          circleArea
+        );
         
-        const spacing = shapeDimensions.radius + 0.5; // Add spacing based on radius
-        topCircle.position.set(0, shapeDimensions.height + spacing, 0);
-        bottomCircle.position.set(0, -spacing, 0);
+        // Add spacing based on radius and a fixed gap
+        const spacing = shapeDimensions.radius * 2 + 1;
+        
+        const topCircle = new THREE.Mesh(
+          new THREE.CircleGeometry(shapeDimensions.radius, 32),
+          circleMaterial
+        );
+        const bottomCircle = new THREE.Mesh(
+          new THREE.CircleGeometry(shapeDimensions.radius, 32),
+          circleMaterial
+        );
+        
+        // Position circles with more spacing
+        topCircle.position.set(0, shapeDimensions.height * 2, 0);
+        bottomCircle.position.set(0, -shapeDimensions.height, 0);
         
         group.add(topCircle);
         group.add(bottomCircle);
-        
-        group.add(createAreaLabel(circleArea, [0, shapeDimensions.height + spacing, 0.01]));
-        group.add(createAreaLabel(circleArea, [0, -spacing, 0.01]));
         break;
+      }
 
-      case 'CONE':
+      case 'CONE': {
         const coneSlantHeight = Math.sqrt(
           Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.radius, 2)
         );
         const arcLength = 2 * Math.PI * shapeDimensions.radius;
         const sectorAngle = (arcLength / coneSlantHeight) * (180 / Math.PI);
         
-        // Create cone net (sector + circle)
+        // Calculate areas
+        const lateralArea = Math.PI * shapeDimensions.radius * coneSlantHeight;
+        const baseArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
+
+        // Create sector (lateral surface) with texture
+        const sectorMaterial = createTexturedMaterial(
+          arcLength,
+          coneSlantHeight,
+          lateralArea
+        );
         const sectorGeometry = new THREE.CircleGeometry(
           coneSlantHeight,
           32,
           0,
           sectorAngle * (Math.PI / 180)
         );
-        const sector = new THREE.Mesh(sectorGeometry, material);
-        sector.position.set(0, 0, 0);
+        const sector = new THREE.Mesh(sectorGeometry, sectorMaterial);
         
+        // Create base circle with texture
+        const circleMaterial = createTexturedMaterial(
+          shapeDimensions.radius * 2,
+          shapeDimensions.radius * 2,
+          baseArea
+        );
         const baseCircle = new THREE.Mesh(
           new THREE.CircleGeometry(shapeDimensions.radius, 32),
-          material
+          circleMaterial
         );
-        baseCircle.position.set(0, -(coneSlantHeight + shapeDimensions.radius), 0);
+        
+        // Position the parts with proper spacing
+        sector.position.set(0, coneSlantHeight/2, 0);
+        baseCircle.position.set(0, -coneSlantHeight/2, 0);
         
         group.add(sector);
         group.add(baseCircle);
-        
-        // Add area labels
-        const coneLateralArea = Math.PI * shapeDimensions.radius * coneSlantHeight;
-        const coneBaseArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
-        
-        group.add(createAreaLabel(coneLateralArea, [0, 0, 0.1]));
-        group.add(createAreaLabel(coneBaseArea, [0, -(coneSlantHeight + shapeDimensions.radius), 0.1]));
         break;
+      }
 
-      case 'PYRAMID':
+      case 'PYRAMID': {
         // Calculate areas
-        const pyramidBaseArea = shapeDimensions.baseLength * shapeDimensions.baseWidth;
-        const pyramidFrontBackArea = shapeDimensions.baseLength * Math.sqrt(
+        const baseArea = shapeDimensions.baseLength * shapeDimensions.baseWidth;
+        const slantHeightFront = Math.sqrt(
           Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.baseWidth/2, 2)
         );
-        const pyramidSideArea = shapeDimensions.baseWidth * Math.sqrt(
+        const slantHeightSide = Math.sqrt(
           Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.baseLength/2, 2)
         );
+        const triangleAreaFront = shapeDimensions.baseLength * slantHeightFront / 2;
+        const triangleAreaSide = shapeDimensions.baseWidth * slantHeightSide / 2;
 
-        // Create pyramid net (square base + triangular faces)
+        // Create materials for each face type
+        const baseMaterial = createTexturedMaterial(
+          shapeDimensions.baseLength,
+          shapeDimensions.baseWidth,
+          baseArea
+        );
+        const triangleMaterialFront = createTexturedMaterial(
+          shapeDimensions.baseLength,
+          shapeDimensions.height,
+          triangleAreaFront
+        );
+        const triangleMaterialSide = createTexturedMaterial(
+          shapeDimensions.baseWidth,
+          shapeDimensions.height,
+          triangleAreaSide
+        );
+
+        // Create base
         const base = new THREE.Mesh(
           new THREE.PlaneGeometry(shapeDimensions.baseLength, shapeDimensions.baseWidth),
-          material
+          baseMaterial
         );
-        base.position.set(0, -2, 0);
-        base.rotation.set(-Math.PI/2, 0, 0);
-        
-        const triangleShape = new THREE.Shape();
-        triangleShape.moveTo(-shapeDimensions.baseLength/2, 0);
-        triangleShape.lineTo(shapeDimensions.baseLength/2, 0);
-        triangleShape.lineTo(0, shapeDimensions.height);
-        triangleShape.lineTo(-shapeDimensions.baseLength/2, 0);
+        base.rotation.x = -Math.PI/2;
+        base.position.set(0, -shapeDimensions.height/2, 0);
 
-        // Create four triangular faces
-        for (let i = 0; i < 4; i++) {
-          const face = new THREE.Mesh(
-            new THREE.ShapeGeometry(triangleShape),
-            material
-          );
-          face.position.set(
-            Math.sin(i * Math.PI/2) * 2,
-            0,
-            Math.cos(i * Math.PI/2) * 2
-          );
-          face.rotation.set(0, i * Math.PI/2, 0);
-          group.add(face);
-        }
-        
+        // Create triangular faces with proper geometry
+        const createTriangle = (width, height) => {
+          const shape = new THREE.Shape();
+          shape.moveTo(-width/2, 0);
+          shape.lineTo(width/2, 0);
+          shape.lineTo(0, height);
+          shape.lineTo(-width/2, 0);
+          return new THREE.ShapeGeometry(shape);
+        };
+
+        // Position triangles around base
+        const triangles = [
+          {
+            geometry: createTriangle(shapeDimensions.baseLength, shapeDimensions.height),
+            material: triangleMaterialFront,
+            position: [0, 0, shapeDimensions.baseWidth/2],
+            rotation: [0, 0, 0]
+          },
+          {
+            geometry: createTriangle(shapeDimensions.baseLength, shapeDimensions.height),
+            material: triangleMaterialFront,
+            position: [0, 0, -shapeDimensions.baseWidth/2],
+            rotation: [0, Math.PI, 0]
+          },
+          {
+            geometry: createTriangle(shapeDimensions.baseWidth, shapeDimensions.height),
+            material: triangleMaterialSide,
+            position: [shapeDimensions.baseLength/2, 0, 0],
+            rotation: [0, -Math.PI/2, 0]
+          },
+          {
+            geometry: createTriangle(shapeDimensions.baseWidth, shapeDimensions.height),
+            material: triangleMaterialSide,
+            position: [-shapeDimensions.baseLength/2, 0, 0],
+            rotation: [0, Math.PI/2, 0]
+          }
+        ];
+
+        triangles.forEach(({ geometry, material, position, rotation }) => {
+          const triangle = new THREE.Mesh(geometry, material);
+          triangle.position.set(...position);
+          triangle.rotation.set(...rotation);
+          group.add(triangle);
+        });
+
         group.add(base);
-        group.add(createAreaLabel(pyramidBaseArea, [0, -2, 0.1]));
-        group.add(createAreaLabel(pyramidFrontBackArea, [2, 0, 0.1]));
-        group.add(createAreaLabel(pyramidSideArea, [-2, 0, 0.1]));
         break;
+      }
 
-      case 'SPHERE':
-        // Calculate areas
+      case 'SPHERE': {
+        // For sphere, create a UV mapping (like a world map)
         const sphereArea = 4 * Math.PI * Math.pow(shapeDimensions.radius, 2);
+        const material = createTexturedMaterial(
+          Math.PI * shapeDimensions.radius * 2,
+          Math.PI * shapeDimensions.radius,
+          sphereArea
+        );
 
-        // Create a simplified sphere net (like a world map projection)
         const segments = 8;
         const rows = 4;
-        
+        const width = Math.PI * shapeDimensions.radius * 2 / segments;
+        const height = Math.PI * shapeDimensions.radius / rows;
+
         for (let i = 0; i < rows; i++) {
           for (let j = 0; j < segments; j++) {
             const panel = new THREE.Mesh(
-              new THREE.PlaneGeometry(
-                Math.PI * 2 / segments,
-                Math.PI / rows
-              ),
+              new THREE.PlaneGeometry(width, height),
               material
             );
             
             panel.position.set(
-              j * Math.PI * 2 / segments - Math.PI,
-              i * Math.PI / rows - Math.PI/2,
+              (j - segments/2) * width,
+              (i - rows/2) * height,
               0
             );
             
             group.add(panel);
           }
         }
-        group.add(createAreaLabel(sphereArea, [0, 0, 0.1]));
         break;
-
-      default:
-        return null;
+      }
     }
 
     group.scale.set(0.5, 0.5, 0.5);
