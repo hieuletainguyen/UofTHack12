@@ -6,7 +6,7 @@ import './HoloMath.css';
 
 // Constants for shapes and educational levels
 const SHAPES = [
-  'CUBE',
+  'CUBOID',
   'SPHERE',
   'CYLINDER',
   'CONE',
@@ -47,20 +47,24 @@ const HoloMath = () => {
   const [isUnfolded, setIsUnfolded] = useState(false);
   const [isUnfoldButtonHighlighted, setIsUnfoldButtonHighlighted] = useState(false);
   const [shapeDimensions, setShapeDimensions] = useState({
+    length: 1,
     width: 1,
     height: 1,
-    radius: 1
+    radius: 1,
+    baseLength: 1,
+    baseWidth: 1
   });
   const [scale, setScale] = useState(1);
   const [volume, setVolume] = useState(0);
   const [activeDimensionControl, setActiveDimensionControl] = useState(null);
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const [initialDimensionValue, setInitialDimensionValue] = useState(null);
 
   // Add volume calculation function
   const calculateVolume = (shape, dimensions) => {
     switch (shape) {
-      case 'CUBE':
-        return Math.pow(dimensions.width, 3);
+      case 'CUBOID':
+        return dimensions.length * dimensions.width * dimensions.height;
       case 'SPHERE':
         return (4/3) * Math.PI * Math.pow(dimensions.radius, 3);
       case 'CYLINDER':
@@ -68,7 +72,7 @@ const HoloMath = () => {
       case 'CONE':
         return (1/3) * Math.PI * Math.pow(dimensions.radius, 2) * dimensions.height;
       case 'PYRAMID':
-        return (1/3) * Math.pow(dimensions.width, 2) * dimensions.height;
+        return (1/3) * dimensions.baseLength * dimensions.baseWidth * dimensions.height;
       default:
         return 0;
     }
@@ -78,20 +82,64 @@ const HoloMath = () => {
   const createShape = (type) => {
     let geometry;
     switch (type) {
+      case 'CUBOID':
+        geometry = new THREE.BoxGeometry(
+          shapeDimensions.length,
+          shapeDimensions.height,
+          shapeDimensions.width
+        );
+        break;
       case 'SPHERE':
         geometry = new THREE.SphereGeometry(shapeDimensions.radius, 32, 32);
         break;
       case 'CYLINDER':
-        geometry = new THREE.CylinderGeometry(shapeDimensions.radius, shapeDimensions.radius, shapeDimensions.height, 32);
+        geometry = new THREE.CylinderGeometry(
+          shapeDimensions.radius,  // top radius
+          shapeDimensions.radius,  // bottom radius (same for cylinder)
+          shapeDimensions.height,  // height
+          32  // segments
+        );
         break;
       case 'CONE':
-        geometry = new THREE.ConeGeometry(shapeDimensions.radius, shapeDimensions.height, 32);
+        geometry = new THREE.ConeGeometry(
+          shapeDimensions.radius, 
+          shapeDimensions.height, 
+          32
+        );
         break;
       case 'PYRAMID':
-        geometry = new THREE.ConeGeometry(shapeDimensions.width, shapeDimensions.height, 4);
+        // Create a custom pyramid geometry with rectangular base
+        const halfLength = shapeDimensions.baseLength / 2;
+        const halfWidth = shapeDimensions.baseWidth / 2;
+        const height = shapeDimensions.height;
+
+        const vertices = new Float32Array([
+          // Base vertices
+          -halfLength, 0, -halfWidth,  // 0
+          halfLength, 0, -halfWidth,   // 1
+          halfLength, 0, halfWidth,    // 2
+          -halfLength, 0, halfWidth,   // 3
+          0, height, 0                 // 4 (apex)
+        ].flat());
+
+        const indices = new Uint16Array([
+          // Base
+          0, 1, 2,
+          0, 2, 3,
+          // Sides
+          0, 4, 1,
+          1, 4, 2,
+          2, 4, 3,
+          3, 4, 0
+        ]);
+
+        geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        geometry.computeVertexNormals();
         break;
-      default: // 'CUBE'
-        geometry = new THREE.BoxGeometry(shapeDimensions.width, shapeDimensions.width, shapeDimensions.width);
+      default:
+        return null;
     }
 
     const material = new THREE.MeshPhongMaterial({
@@ -139,9 +187,8 @@ const HoloMath = () => {
     const group = new THREE.Group();
 
     switch (type) {
-      case 'CUBE':
-        // Create cube net (cross shape)
-        const cubefaces = [
+      case 'CUBOID':
+        const faces = [
           { position: [0, 0, 0], rotation: [0, 0, 0] },        // front
           { position: [2, 0, 0], rotation: [0, -Math.PI/2, 0] }, // right
           { position: [-2, 0, 0], rotation: [0, Math.PI/2, 0] }, // left
@@ -150,9 +197,9 @@ const HoloMath = () => {
           { position: [4, 0, 0], rotation: [0, Math.PI, 0] }     // back
         ];
 
-        cubefaces.forEach(face => {
+        faces.forEach(face => {
           const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(2, 2),
+            new THREE.PlaneGeometry(shapeDimensions.length, shapeDimensions.height),
             material
           );
           plane.position.set(...face.position);
@@ -257,10 +304,15 @@ const HoloMath = () => {
         break;
 
       default:
-        return null;
+        // Return a simple placeholder for unsupported shapes
+        const placeholder = new THREE.Mesh(
+          new THREE.PlaneGeometry(2, 2),
+          material
+        );
+        group.add(placeholder);
+        break;
     }
 
-    // Scale the entire group to match original shape size
     group.scale.set(0.5, 0.5, 0.5);
     return group;
   };
@@ -271,154 +323,58 @@ const HoloMath = () => {
       previousHandPositionRef.current = { x: null, y: null };
       setIsPinching(false);
       lastPinchStateRef.current = false;
-      setIsDraggingSlider(false);
-      setActiveDimensionControl(null);
       return;
     }
 
     results.multiHandLandmarks.forEach((landmarks, index) => {
       const isLeftHand = results.multiHandedness[index].label === 'Left';
       const indexFinger = landmarks[8];
-      const x = indexFinger.x * window.innerWidth;
+      const x = (1 - indexFinger.x) * window.innerWidth;
       const y = indexFinger.y * window.innerHeight;
-      const thumbTip = landmarks[4];
-      const pinchDistance = Math.sqrt(
-        Math.pow(thumbTip.x - indexFinger.x, 2) +
-        Math.pow(thumbTip.y - indexFinger.y, 2)
-      );
-      const isPinching = pinchDistance < PINCH_THRESHOLD;
 
       if (isLeftHand) {
         setCursorPosition({ x, y });
 
-        // Handle dimension controls
-        const dimensionInputs = document.querySelectorAll('.dimension-control');
-        let isOverAnyInput = false;
-
-        dimensionInputs.forEach(input => {
-          const rect = input.getBoundingClientRect();
-          const isOverInput = x >= rect.left && x <= rect.right && 
-                            y >= rect.top && y <= rect.bottom;
-
-          if (isOverInput) {
-            isOverAnyInput = true;
-            input.classList.add('highlighted');
-            
-            if (isPinching && !isDraggingSlider) {
-              const dimensionType = input.getAttribute('data-dimension');
-              setActiveDimensionControl(dimensionType);
-              setIsDraggingSlider(true);
-              pinchStartXRef.current = x; // Store initial pinch position
-            }
-          } else {
-            input.classList.remove('highlighted');
-          }
-        });
-
-        // Update dimension value while dragging
-        if (isDraggingSlider && activeDimensionControl && isPinching) {
-          const control = document.querySelector(`[data-dimension="${activeDimensionControl}"]`);
-          if (control) {
-            const sliderTrack = control.querySelector('.slider-track');
-            const trackRect = sliderTrack.getBoundingClientRect();
-            
-            // Calculate movement delta
-            const deltaX = x - pinchStartXRef.current;
-            const sensitivity = 0.005; // Adjust this value to control sensitivity
-            
-            // Update the dimension value based on movement
-            setShapeDimensions(prev => {
-              const currentValue = prev[activeDimensionControl];
-              const newValue = currentValue + deltaX * sensitivity;
-              return {
-                ...prev,
-                [activeDimensionControl]: Math.max(0.1, Math.min(5, newValue))
-              };
-            });
-            
-            // Update start position for next frame
-            pinchStartXRef.current = x;
-          }
-        }
-
-        // Release slider if not pinching
-        if (!isPinching && isDraggingSlider) {
-          setIsDraggingSlider(false);
-          setActiveDimensionControl(null);
-          pinchStartXRef.current = null;
-        }
-
-        // Check for pinch release
+        // Check for pinch gesture
         const thumbTip = landmarks[4];
         const pinchDistance = Math.sqrt(
           Math.pow(thumbTip.x - indexFinger.x, 2) +
           Math.pow(thumbTip.y - indexFinger.y, 2)
         );
+        const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
 
-        if (pinchDistance >= PINCH_THRESHOLD && isDraggingSlider) {
-          setIsDraggingSlider(false);
-          setActiveDimensionControl(null);
-        }
+        // Handle shape buttons
+        const shapeButtons = document.querySelectorAll('.shape-button');
+        shapeButtons.forEach(button => {
+          const rect = button.getBoundingClientRect();
+          const isOverButton = x >= rect.left && x <= rect.right && 
+                              y >= rect.top && y <= rect.bottom;
 
-        // Check both buttons
-        const shapeButton = document.getElementById('shape-button');
-        const unfoldButton = document.getElementById('unfold-button');
-
-        if (shapeButton && unfoldButton) {
-          const shapeRect = shapeButton.getBoundingClientRect();
-          const unfoldRect = unfoldButton.getBoundingClientRect();
-
-          const isOverShapeButton = x >= shapeRect.left && x <= shapeRect.right && 
-                                   y >= shapeRect.top && y <= shapeRect.bottom;
-          
-          const isOverUnfoldButton = x >= unfoldRect.left && x <= unfoldRect.right && 
-                                    y >= unfoldRect.top && y <= unfoldRect.bottom;
-
-          setIsButtonHighlighted(isOverShapeButton);
-          setIsUnfoldButtonHighlighted(isOverUnfoldButton);
-
-          // Handle shape button
-          if (isOverShapeButton) {
-            // Detect pinch gesture
-            const thumbTip = landmarks[4];
-            const pinchDistance = Math.sqrt(
-              Math.pow(thumbTip.x - indexFinger.x, 2) +
-              Math.pow(thumbTip.y - indexFinger.y, 2)
-            );
-
-            // Check if pinching
-            const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
+          if (isOverButton) {
+            button.classList.add('highlighted');
+            const shape = button.getAttribute('data-shape');
             
-            // If we just started pinching (transition from not pinching to pinching)
             if (isPinchGesture && !lastPinchStateRef.current) {
-              setCurrentShape(prevShape => {
-                const currentIndex = SHAPES.indexOf(prevShape);
-                return SHAPES[(currentIndex + 1) % SHAPES.length];
+              setCurrentShape(shape);
+              // Reset dimensions when changing shapes
+              setShapeDimensions({
+                length: 1,
+                width: 1,
+                height: 1,
+                radius: 1,
+                baseLength: 1,
+                baseWidth: 1
               });
+              setIsUnfolded(false);
             }
-
-            // Update states
-            setIsPinching(isPinchGesture);
-            lastPinchStateRef.current = isPinchGesture;
+          } else {
+            button.classList.remove('highlighted');
           }
+        });
 
-          // Handle unfold button
-          if (isOverUnfoldButton) {
-            const thumbTip = landmarks[4];
-            const pinchDistance = Math.sqrt(
-              Math.pow(thumbTip.x - indexFinger.x, 2) +
-              Math.pow(thumbTip.y - indexFinger.y, 2)
-            );
-
-            const isPinchGesture = pinchDistance < PINCH_THRESHOLD;
-            if (isPinchGesture && !lastPinchStateRef.current) {
-              setIsUnfolded(prev => !prev);
-            }
-            lastPinchStateRef.current = isPinchGesture;
-          }
-        }
+        lastPinchStateRef.current = isPinchGesture;
       } else {
-        // Right hand controls object manipulation
+        // Right hand controls rotation
         if (currentObjectRef.current) {
           const prev = previousHandPositionRef.current;
           if (prev.x !== null) {
@@ -524,15 +480,17 @@ const HoloMath = () => {
     }
   }, []);
 
-  // Update shape when changed
+  // Update shape when dimensions, shape type, or unfolded state changes
   useEffect(() => {
     if (sceneRef.current && currentObjectRef.current) {
-      sceneRef.current.remove(currentObjectRef.current);
-      const newShape = createShape(currentShape);
-      sceneRef.current.add(newShape);
-      currentObjectRef.current = newShape;
+      const newShape = isUnfolded ? create2DNet(currentShape) : createShape(currentShape);
+      if (newShape) {
+        sceneRef.current.remove(currentObjectRef.current);
+        sceneRef.current.add(newShape);
+        currentObjectRef.current = newShape;
+      }
     }
-  }, [currentShape]);
+  }, [currentShape, shapeDimensions, isUnfolded]);
 
   // Add effect to handle unfolding animation
   useEffect(() => {
@@ -558,8 +516,50 @@ const HoloMath = () => {
   // Add effect to update volume when dimensions or shape changes
   useEffect(() => {
     const newVolume = calculateVolume(currentShape, shapeDimensions);
-    setVolume(newVolume * Math.pow(scale, 3));
-  }, [currentShape, shapeDimensions, scale]);
+    setVolume(newVolume);
+  }, [currentShape, shapeDimensions]);
+
+  // Simplify the handleDimensionButtonClick function
+  const handleDimensionButtonClick = (dimension, value) => {
+    setShapeDimensions(prev => {
+      const newDimensions = {
+        ...prev,
+        [dimension]: value
+      };
+      return newDimensions;
+    });
+  };
+
+  // Add this function to handle shape button clicks
+  const handleShapeButtonClick = (shape) => {
+    console.log('Changing shape to:', shape); // Add debug log
+    
+    // Update shape
+    setCurrentShape(shape);
+    
+    // Reset dimensions
+    setShapeDimensions({
+      length: 1,
+      width: 1,
+      height: 1,
+      radius: 1,
+      baseLength: 1,
+      baseWidth: 1
+    });
+    
+    // Reset unfolded state
+    setIsUnfolded(false);
+    
+    // Force shape update
+    if (sceneRef.current && currentObjectRef.current) {
+      const newShape = createShape(shape);
+      if (newShape) {
+        sceneRef.current.remove(currentObjectRef.current);
+        sceneRef.current.add(newShape);
+        currentObjectRef.current = newShape;
+      }
+    }
+  };
 
   return (
     <div className="holomath-container">
@@ -573,21 +573,26 @@ const HoloMath = () => {
         }}
       />
 
-      {/* Shape change button */}
-      <div 
-        id="shape-button"
-        className={`shape-button ${isButtonHighlighted ? 'highlighted' : ''}`}
-      >
-        Change Shape
+      {/* Shape selection buttons */}
+      <div className="shape-buttons">
+        {SHAPES.map(shape => (
+          <div 
+            key={shape}
+            className={`shape-button ${currentShape === shape ? 'active' : ''} ${isButtonHighlighted && shape === currentShape ? 'highlighted' : ''}`}
+            data-shape={shape}
+          >
+            {shape.charAt(0) + shape.slice(1).toLowerCase()}
+          </div>
+        ))}
       </div>
 
       {/* Unfold button */}
-      <div 
-        id="unfold-button"
+      <button 
         className={`unfold-button ${isUnfoldButtonHighlighted ? 'highlighted' : ''}`}
+        onClick={() => setIsUnfolded(prev => !prev)}
       >
         {isUnfolded ? 'Fold Shape' : 'Unfold Shape'}
-      </div>
+      </button>
 
       {/* Level selector */}
       <div className="level-selector">
@@ -605,8 +610,8 @@ const HoloMath = () => {
       <div className="controls-guide">
         <div className="left-hand">
           <h4>Left Hand</h4>
-          <p>1. Point at button</p>
-          <p>2. Pinch thumb & index to change shape</p>
+          <p>1. Point at buttons</p>
+          <p>2. Pinch to interact</p>
         </div>
         <div className="right-hand">
           <h4>Right Hand</h4>
@@ -614,86 +619,154 @@ const HoloMath = () => {
         </div>
       </div>
 
-      {/* Move dimension controls to left side */}
+      {/* Dimension control buttons */}
       <div className="dimension-controls">
         <h4>Dimensions</h4>
-        {currentShape === 'CUBE' && (
-          <div 
-            className="dimension-control"
-            data-dimension="width"
-          >
-            <label>Width: {shapeDimensions.width.toFixed(1)}</label>
-            <div className="slider-track">
-              <div 
-                className="slider-fill" 
-                style={{width: `${(shapeDimensions.width / 5) * 100}%`}}
-              />
-            </div>
-          </div>
-        )}
-        {(currentShape === 'CYLINDER' || currentShape === 'CONE' || currentShape === 'PYRAMID') && (
+        {currentShape === 'CUBOID' && (
           <>
-            <div 
-              className="dimension-control"
-              data-dimension="height"
-            >
-              <label>Height: {shapeDimensions.height.toFixed(1)}</label>
-              <div className="slider-track">
-                <div 
-                  className="slider-fill" 
-                  style={{width: `${(shapeDimensions.height / 5) * 100}%`}}
-                />
+            <div className="dimension-buttons">
+              <label>Length:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.length === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('length', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
               </div>
             </div>
-            {currentShape !== 'PYRAMID' && (
-              <div 
-                className="dimension-control"
-                data-dimension="radius"
-              >
-                <label>Radius: {shapeDimensions.radius.toFixed(1)}</label>
-                <div className="slider-track">
-                  <div 
-                    className="slider-fill" 
-                    style={{width: `${(shapeDimensions.radius / 5) * 100}%`}}
-                  />
-                </div>
+            <div className="dimension-buttons">
+              <label>Width:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.width === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('width', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+            <div className="dimension-buttons">
+              <label>Height:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('height', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {currentShape === 'PYRAMID' && (
+          <>
+            <div className="dimension-buttons">
+              <label>Base Length:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.baseLength === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('baseLength', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dimension-buttons">
+              <label>Base Width:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.baseWidth === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('baseWidth', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dimension-buttons">
+              <label>Height:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('height', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {(currentShape === 'CYLINDER' || currentShape === 'CONE') && (
+          <>
+            <div className="dimension-buttons">
+              <label>Height:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.height === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('height', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="dimension-buttons">
+              <label>Radius:</label>
+              <div className="button-group">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    className={`dimension-button ${shapeDimensions.radius === value ? 'active' : ''}`}
+                    onClick={() => handleDimensionButtonClick('radius', value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
           </>
         )}
         {currentShape === 'SPHERE' && (
-          <div 
-            className="dimension-control"
-            data-dimension="radius"
-          >
-            <label>Radius: {shapeDimensions.radius.toFixed(1)}</label>
-            <div className="slider-track">
-              <div 
-                className="slider-fill" 
-                style={{width: `${(shapeDimensions.radius / 5) * 100}%`}}
-              />
+          <div className="dimension-buttons">
+            <label>Radius:</label>
+            <div className="button-group">
+              {[1, 2, 3, 4, 5].map(value => (
+                <button
+                  key={value}
+                  className={`dimension-button ${shapeDimensions.radius === value ? 'active' : ''} ${isButtonHighlighted && activeDimensionControl === 'radius' ? 'highlighted' : ''}`}
+                  onClick={() => handleDimensionButtonClick('radius', value)}
+                >
+                  {value}
+                </button>
+              ))}
             </div>
           </div>
         )}
-      </div>
 
-      {/* Add scale control */}
-      <div className="scale-control">
-        <label>Scale: </label>
-        <input
-          type="range"
-          min="0.1"
-          max="2"
-          step="0.1"
-          value={scale}
-          onChange={(e) => setScale(parseFloat(e.target.value))}
-        />
-        <span>{scale.toFixed(1)}x</span>
-      </div>
-
-      {/* Display volume */}
-      <div className="volume-display">
-        <p>Volume: {volume.toFixed(2)} cubic units</p>
+        {/* Display volume */}
+        <div className="volume-display">
+          <p>Volume: {volume.toFixed(2)} cubic units</p>
+        </div>
       </div>
 
       {/* Three.js container */}

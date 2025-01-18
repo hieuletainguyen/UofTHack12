@@ -46,34 +46,38 @@
   box-shadow: 0 0 15px rgba(255, 165, 0, 0.7);
 }
 
-.shape-button {
+.shape-buttons {
   position: absolute;
-  left: 20px;
-  top: 50%;
+  right: 20px;
+  top: 25%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 15px 30px;
-  border-radius: 10px;
-  font-size: 18px;
-  z-index: 1000;
-  transition: all 0.3s ease;
-  pointer-events: none;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 5px;
+  gap: 10px;
+  z-index: 1000;
 }
 
+.shape-button {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-width: 100px;
+  pointer-events: none;
+}
+
+.shape-button:hover,
 .shape-button.highlighted {
-  background: rgba(76, 175, 80, 0.9);
-  transform: translateY(-50%) scale(1.1);
+  background: rgba(76, 175, 80, 0.7);
+  transform: scale(1.05);
 }
 
-.shape-button::after {
-  content: '👌 Pinch to change';
-  font-size: 12px;
-  opacity: 0.8;
+.shape-button.active {
+  background: #4CAF50;
+  border: 1px solid white;
 }
 
 .level-selector {
@@ -112,8 +116,9 @@
 }
 
 .controls-guide p {
-  margin: 0;
+  margin: 5px 0;
   font-size: 14px;
+  opacity: 0.9;
 }
 
 .left-hand,
@@ -123,8 +128,8 @@
 
 .unfold-button {
   position: absolute;
-  left: 20px;
-  top: 60%;
+  right: 20px;
+  top: 45%;
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.7);
   color: white;
@@ -133,7 +138,7 @@
   font-size: 18px;
   z-index: 1000;
   transition: all 0.3s ease;
-  pointer-events: none;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -153,60 +158,63 @@
 
 .dimension-controls {
   position: absolute;
-  left: 20px;
-  top: 65%;
+  right: 20px;
+  top: 50%;
   background: rgba(0, 0, 0, 0.7);
   padding: 15px;
   border-radius: 8px;
   color: white;
   z-index: 1000;
-  width: 200px;
+  width: 250px;
 }
 
-.dimension-control {
+.dimension-buttons {
   margin: 15px 0;
-  padding: 10px;
-  border-radius: 5px;
-  transition: all 0.3s ease;
-  cursor: pointer;
 }
 
-.dimension-control.highlighted {
+.dimension-buttons label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.dimension-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  border: none;
+  outline: none;
+}
+
+.dimension-button:hover {
   background: rgba(76, 175, 80, 0.3);
   transform: scale(1.05);
-  border: 1px solid rgba(76, 175, 80, 0.5);
 }
 
-.dimension-control label {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.slider-track {
-  height: 30px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 15px;
-  position: relative;
-  cursor: pointer;
-  margin-top: 8px;
-  border: 1px solid rgba(76, 175, 80, 0.3);
-}
-
-.slider-fill {
-  position: absolute;
-  height: 100%;
+.dimension-button.active {
   background: #4CAF50;
-  border-radius: 15px;
-  transition: width 0.1s ease;
+  color: white;
 }
 
-.dimension-control.active .slider-track {
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+.dimension-button.highlighted {
+  background: rgba(76, 175, 80, 0.5);
+  transform: scale(1.1);
 }
 
 .scale-control {
-  margin-top: 10px;
+  display: none;
 }
 
 .scale-control input[type="range"] {
@@ -215,7 +223,15 @@
 }
 
 .volume-display {
-  margin-top: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   text-align: center;
+}
+
+.volume-display p {
+  margin: 0;
+  font-size: 16px;
   font-weight: bold;
+  color: #4CAF50;
 } 
