@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import HoloMath from './components/HolloMath';
+// import HoloMath from './components/HoloMath/index.js';
+import HoloMathOrigin from './components/HolloMath';
 import './App.css';
 
 function App() {
@@ -25,7 +26,8 @@ function App() {
 
   return (
     <div className="App">
-      <HoloMath />
+      <HoloMathOrigin />
+      {/* <HoloMath /> */}
     </div>
   );
 }
