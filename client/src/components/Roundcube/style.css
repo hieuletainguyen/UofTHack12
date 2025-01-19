@@ -1,0 +1,7 @@
+.roundcube {
+  background-image: url(././../static/img/roundcube-black-matte.png);
+  background-position: 30%50%;
+  background-size: cover;
+  height: 360px / 2;
+  width:424px / 2;
+}

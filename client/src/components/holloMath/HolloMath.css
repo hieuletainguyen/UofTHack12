@@ -1,0 +1,359 @@
+/* Container and Canvas */
+.holomath-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Camera Feed */
+.camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 240px;
+  z-index: 1;
+  opacity: 0.7;
+  transform: scaleX(-1);
+}
+
+.hand-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  height: 240px;
+  z-index: 2;
+  transform: scaleX(-1);
+}
+
+/* Hand Cursor */
+.hand-cursor {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: rgba(76, 175, 80, 0.8);
+  border: 2px solid white;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  transition: all 0.1s ease;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.hand-cursor.over-button {
+  background: rgba(255, 255, 255, 0.8);
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.hand-cursor.pinching {
+  background: rgba(255, 165, 0, 0.8);
+  transform: translate(-50%, -50%) scale(0.8);
+  box-shadow: 0 0 15px rgba(255, 165, 0, 0.7);
+}
+
+/* Top Navigation */
+.button-container {
+  display: flex;
+  gap: 10px;
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+.unfold-button,
+.scale-button {
+  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: none; /* Disable regular mouse events */
+}
+
+.unfold-button:hover,
+.scale-button:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.unfold-button.highlighted,
+.scale-button.highlighted {
+  background: rgba(76, 175, 80, 0.5);
+  transform: scale(1.1);
+}
+
+.unfold-button.active,
+.scale-button.active {
+  background: #4CAF50;
+}
+
+.unfold-button::after {
+  content: '👌 Pinch to unfold';
+  display: block;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 5px;
+}
+
+/* Shape Selection */
+.shape-buttons {
+  position: absolute;
+  right: 20px;
+  top: 23%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.shape-button {
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  text-align: center;
+  min-width: 100px;
+  cursor: pointer;
+}
+
+.shape-button:hover,
+.shape-button.highlighted {
+  background: rgba(76, 175, 80, 0.7);
+  transform: scale(1.05);
+}
+
+.shape-button.active {
+  background: #4CAF50;
+  border: 1px solid white;
+}
+
+/* Level Selector */
+.level-selector {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.level-selector select {
+  padding: 8px 15px;
+  font-size: 16px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: 1px solid rgba(76, 175, 80, 0.5);
+}
+
+/* Dimension Controls */
+.dimension-controls {
+  position: absolute;
+  right: 20px;
+  top: 40%;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 15px;
+  border-radius: 8px;
+  color: white;
+  z-index: 1000;
+  width: 250px;
+}
+
+.dimension-buttons {
+  margin: 15px 0;
+}
+
+.dimension-buttons label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.dimension-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+}
+
+.dimension-button:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.dimension-button.active {
+  background: #4CAF50;
+  color: white;
+}
+
+/* Controls Guide */
+.controls-guide {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 30px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 15px;
+  border-radius: 10px;
+  color: white;
+  z-index: 1000;
+}
+
+.controls-guide h4 {
+  color: #4CAF50;
+  margin: 0 0 10px 0;
+}
+
+.controls-guide p {
+  margin: 5px 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.left-hand,
+.right-hand {
+  text-align: center;
+}
+
+/* Volume Display */
+.volume-display {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.volume-display p {
+  margin: 5px 0;
+  font-size: 16px;
+  font-weight: bold;
+  color: #4CAF50;
+}
+
+.volume-display p.highlighted {
+  color: #FFA500;
+  font-size: 18px;
+  text-shadow: 0 0 5px rgba(255, 165, 0, 0.5);
+}
+
+/* Scale Control */
+.scale-control {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scale-control input[type="range"] {
+  flex: 1;
+  height: 4px;
+  background: rgba(76, 175, 80, 0.3);
+  border-radius: 2px;
+  outline: none;
+}
+
+.scale-control span {
+  min-width: 40px;
+  text-align: right;
+}
+
+.scale-button {
+  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.scale-button.active {
+  background: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.scale-button::after {
+  content: '✋ Use palm to scale';
+  display: block;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 5px;
+}
+
+/* Add styles for zoom buttons */
+.zoom-button {
+  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.zoom-button:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.zoom-button.highlighted {
+  background: rgba(76, 175, 80, 0.5);
+  transform: scale(1.1);
+} 
+
+.start-speech {
+  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+}
+.start-speech:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.start-speech.highlighted {
+  background: rgba(76, 175, 80, 0.5);
+  transform: scale(1.1);
+}
+
+.start-speech.active {
+  background: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+} 

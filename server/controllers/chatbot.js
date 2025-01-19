@@ -29,7 +29,7 @@ const chatWithEducationAssistant = async (req, res) => {
 
   const systemPrompt = `
     You are a virtual assistant for the Virtual New Education system. 
-    You can modify the following attributes for virtual objects: height, width, length, scale, unfold, fold, and shape.
+    You can modify the following attributes for virtual objects: height, width, length, radius, baseLength, baseWidth, scale, unfold, fold, and shape.
     You need to modify the current state of the object based on the user's input.
 
     **Rules:**
