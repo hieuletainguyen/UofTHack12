@@ -1,10 +1,7 @@
 import React from "react";
 import {useState} from "react";
-
+import { useNavigate } from 'react-router-dom';
 import "./style.css";
-
-
-
 import roundcubeblack from "../../img/roundcube-black-matte-2.png"
 import cylinderblackmatte from "../../img/cylinder-black-matte-1.png"
 import coneblackmatte from "../../img/cone-black-matte-1.png"
@@ -19,10 +16,22 @@ import stupidsquare from "./../../shape1/roundcube-black-matte-1.png"
 
 export const Landing = () => {
   const [signIn, setSignIn] = useState(false);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState('');
 
   const handleClick = () => {
     setSignIn(!signIn);
   }
+
+  const handleSignIn = () => {
+    if (email === "" && password === "") {
+      navigate("/tutorial");
+    } else {
+      alert("Either your email or your password is incorrect");
+    }
+  }
+
   return (
     <div className="landing">
       <div className="div">
@@ -79,6 +88,7 @@ export const Landing = () => {
             
           <div className="label">
             <div className="text-wrapper">Email</div>
+
           </div>
 
           <div className="label">
@@ -86,7 +96,9 @@ export const Landing = () => {
           </div>
 
           <div className="label">
-            <div className="text-wrapper23">Log In</div>
+            <button onClick={handleSignIn}>
+              <div className="text-wrapper23">Log In</div>
+            </button>
           </div>
 
           <div className="overlap-group">
