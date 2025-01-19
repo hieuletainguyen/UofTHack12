@@ -7,6 +7,7 @@ import calculateVolume from '../utils/calculateVolume';
 import calculateSurfaceArea from '../utils/calculateSA';
 import create2DNet from '../utils/create2DNet';
 import createShape from '../utils/createShape';
+import SpeechAssistant from './SpeechAssistant';
 
 // Constants for shapes and educational levels
 const SHAPES = [
@@ -44,7 +45,6 @@ const HoloMathOrigin = () => {
   const mouseRef = useRef(new THREE.Vector2());
   const draggedFaceRef = useRef(null);
   const canvasRef = useRef(null);
-
   // State
   const [currentShape, setCurrentShape] = useState(SHAPES[0]);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
@@ -66,6 +66,12 @@ const HoloMathOrigin = () => {
   const [surfaceArea, setSurfaceArea] = useState(0);
   const [isHandDragging, setIsHandDragging] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [currentState, setCurrentState] = useState({
+    ...shapeDimensions,
+    scale: scale,
+    unfolded: isUnfolded,
+    shape: currentShape
+  });
 
   // Add this function to draw the hand skeleton
   const drawHand = (landmarks, isLeft) => {
@@ -213,6 +219,17 @@ const HoloMathOrigin = () => {
               baseWidth: 1
             });
             setIsUnfolded(false);
+            setCurrentState({
+              length: 1,
+              width: 1,
+              height: 1,
+              radius: 1,
+              baseLength: 1,
+              baseWidth: 1,
+              scale: scale,
+              unfolded: false,
+              shape: shape
+            });
           });
         });
 
@@ -233,6 +250,10 @@ const HoloMathOrigin = () => {
         const unfoldButton = document.getElementById('unfold-button');
         handleInteraction(unfoldButton, () => {
           setIsUnfolded(prev => !prev);
+          setCurrentState({
+            ...currentState,
+            unfolded: !isUnfolded,
+          });
         });
 
         // Handle zoom buttons
@@ -396,6 +417,10 @@ const HoloMathOrigin = () => {
         const roundedZoom = Math.round(newZoom * 10) / 10;
         setZoomLevel(roundedZoom);
         setScale(roundedZoom);
+        setCurrentState({
+          ...currentState,
+          scale: roundedZoom
+        });
       }
     } else {
       // Check if we can still zoom out
@@ -404,8 +429,52 @@ const HoloMathOrigin = () => {
         const roundedZoom = Math.round(newZoom * 10) / 10;
         setZoomLevel(roundedZoom);
         setScale(roundedZoom);
+        setCurrentState({
+          ...currentState,
+          scale: roundedZoom
+        });
       }
     }
+  };
+
+  // Add this function to handle the speech response
+  const handleSpeechResponse = (response) => {
+    console.log('Speech response:', response);
+    
+    // Update shape dimensions based on response
+    if (response.dimensions) {
+      const { length, width, height, radius, baseLength, baseWidth } = response.dimensions;
+      setShapeDimensions(prev => ({
+        ...prev,
+        ...(length && { length }),
+        ...(width && { width }),
+        ...(height && { height }),
+        ...(radius && { radius }),
+        ...(baseLength && { baseLength }),
+        ...(baseWidth && { baseWidth })
+      }));
+    }
+
+    // Update scale if provided
+    if (response.scale) {
+      const newScale = parseFloat(response.scale);
+      if (!isNaN(newScale) && newScale >= 0.5 && newScale <= 2.0) {
+        setScale(newScale);
+        setZoomLevel(newScale);
+      }
+    }
+
+    // Update unfold state if provided
+    if (response.unfold !== undefined) {
+      setIsUnfolded(response.unfold);
+    }
+
+    // Update shape type if provided
+    if (response.shape && SHAPES.includes(response.shape.toUpperCase())) {
+      setCurrentShape(response.shape.toUpperCase());
+    }
+
+    setCurrentState(response);
   };
 
   return (
@@ -706,6 +775,10 @@ const HoloMathOrigin = () => {
           height={480}
         />
       </div>
+      <SpeechAssistant 
+        currentState={currentState} 
+        onResponse={handleSpeechResponse}
+      />
     </div>
   );
 };
