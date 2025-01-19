@@ -52,6 +52,10 @@ const HoloMathOrigin = () => {
   const mouseRef = useRef(new THREE.Vector2());
   const draggedFaceRef = useRef(null);
 
+  const objectsRef = useRef([]); // Manage all shapes
+  const [activeObjectIndex, setActiveObjectIndex] = useState(null);
+
+
   // State
   const [currentShape, setCurrentShape] = useState(SHAPES[0]);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
@@ -75,6 +79,25 @@ const HoloMathOrigin = () => {
   const [isScalingMode, setIsScalingMode] = useState(false);
 
   // Handle hand gestures
+
+  const addShapeWithMargin = (type, dimensions, scale) => {
+    const newShape = createShape(type, dimensions, scale, `${type}_${objectsRef.current.length + 1}`);
+  
+    // Correctly position shapes to avoid overlap
+    const offset = objectsRef.current.length;
+    const gridSpacing = 3; // Adjust spacing as needed
+    newShape.position.set(
+      (offset % 5) * gridSpacing - 10, // Center shapes horizontally
+      Math.floor(offset / 5) * -gridSpacing, // Stack shapes vertically
+      0
+    );
+  
+    // Add shape to the scene and update refs
+    sceneRef.current.add(newShape);
+    objectsRef.current.push(newShape);
+    setActiveObjectIndex(objectsRef.current.length - 1);
+  };
+
   const handleHandGestures = (results) => {
     if (!results.multiHandLandmarks || !results.multiHandLandmarks.length) {
       previousHandPositionRef.current = { x: null, y: null };
@@ -267,7 +290,7 @@ const HoloMathOrigin = () => {
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
-      renderer.render(scene, camera);
+      renderer.render(sceneRef.current, cameraRef.current);
     };
     animate();
 
@@ -434,16 +457,25 @@ const HoloMathOrigin = () => {
             data-shape={shape}
             onClick={() => {
               setCurrentShape(shape);
-              // Reset dimensions when changing shapes
               setShapeDimensions({
                 length: 1,
                 width: 1,
                 height: 1,
                 radius: 1,
                 baseLength: 1,
-                baseWidth: 1
+                baseWidth: 1,
               });
               setIsUnfolded(false);
+            
+              // Call addShapeWithMargin directly
+              addShapeWithMargin(shape, {
+                length: 1,
+                width: 1,
+                height: 1,
+                radius: 1,
+                baseLength: 1,
+                baseWidth: 1,
+              }, 1);
             }}
           >
             {shape.charAt(0) + shape.slice(1).toLowerCase()}
