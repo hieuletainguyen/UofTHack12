@@ -1,40 +1,77 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { useLoader } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
+
+const Tooltip = ({ position, content }) => (
+  <mesh position={position}>
+    <Html center>
+      <div
+        style={{
+          backgroundColor: 'white',
+          color: 'black',
+          padding: '5px 10px',
+          borderRadius: '5px',
+          fontSize: '12px',
+          pointerEvents: 'none',
+        }}
+      >
+        {content}
+      </div>
+    </Html>
+  </mesh>
+);
 
 const Model = () => {
-    // Point to the GLTF file in the public directory
-    const modelUrl = `${process.env.PUBLIC_URL}/scene.gltf`;
+  // Load the GLTF model
+  const modelUrl = `${process.env.PUBLIC_URL}/scene.gltf`;
+  const gltf = useLoader(GLTFLoader, modelUrl);
 
-    // Load the model using useLoader
-    const gltf = useLoader(GLTFLoader, modelUrl);
+  // Return the loaded model and annotations
+  return (
+    <>
+      <primitive object={gltf.scene} />
 
-    // Render the loaded GLTF model
-    return <primitive object={gltf.scene} />;
+      {/* Add tooltips at specific positions on the model */}
+      <Tooltip position={[1, 0.5, 0]} content="Great Red Spot: A massive storm" />
+      <Tooltip position={[-1, -0.5, 0]} content="Io's Tidal Heating" />
+    </>
+  );
+};
+
+const Loading = () => {
+  // Use the `Html` helper to overlay a loading message
+  return (
+    <Html center>
+      <div style={{ color: 'white', fontSize: '1.5em' }}>Loading...</div>
+    </Html>
+  );
 };
 
 const Scene = () => {
   return (
-    <Canvas>
-      {/* Add some lights */}
+    <Canvas
+      camera={{ position: [0, 0, 4], fov: 50 }} // Adjust camera position and field of view
+    >
+      {/* Add lights */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[5, 5, 5]} />
 
-      {/* Render the model */}
-      <Model />
+      {/* Use Suspense to show loading message */}
+      <Suspense fallback={<Loading />}>
+        <Model />
+      </Suspense>
 
-      {/* Enable interaction */}
-      <OrbitControls />
+      {/* Add interactive controls and limit zoom */}
+      <OrbitControls minDistance={3} maxDistance={5} />
     </Canvas>
   );
 };
 
 const App1 = () => {
   return (
-    <div style={{ height: '100vh' }}>
-      {/* Render the 3D scene */}
+    <div style={{ height: '100vh', backgroundColor: 'black' }}>
       <Scene />
     </div>
   );
