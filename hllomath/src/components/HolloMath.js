@@ -171,35 +171,50 @@ const HoloMathOrigin = () => {
           // Handle all interactive elements
           const handleInteraction = (element, onPinch) => {
             if (!element) return;
+            
             const rect = element.getBoundingClientRect();
-            const isOverElement = x >= rect.left && x <= rect.right && 
-                                y >= rect.top && y <= rect.bottom;
-
+            const isOverElement = cursorPosition.x >= rect.left && cursorPosition.x <= rect.right &&
+                                  cursorPosition.y >= rect.top && cursorPosition.y <= rect.bottom;
+          
             if (isOverElement) {
-              element.classList.add('highlighted');
-              if (isPinchGesture && !lastPinchStateRef.current) {
-                onPinch();
+              element.classList.add('highlighted'); // Highlight the button for visual feedback
+              if (isPinching && !lastPinchStateRef.current) {
+                onPinch(); // Trigger the button action when pinch starts
               }
             } else {
               element.classList.remove('highlighted');
             }
           };
-
+          
+          // const shapeButtons = document.querySelectorAll('.shape-button');
+          // shapeButtons.forEach(button => {
+          //   handleInteraction(button, () => {
+          //     const shape = button.getAttribute('data-shape');
+          //     addShapeWithMargin(shape, {
+          //       length: 1,
+          //       width: 1,
+          //       height: 1,
+          //       radius: 1,
+          //       baseLength: 1,
+          //       baseWidth: 1,
+          //     }, 1); // Add the shape with default parameters
+          //   });
+          // });
           // Handle shape buttons
           const shapeButtons = document.querySelectorAll('.shape-button');
           shapeButtons.forEach(button => {
             handleInteraction(button, () => {
               const shape = button.getAttribute('data-shape');
               setCurrentShape(shape);
-              setShapeDimensions({
+              addShapeWithMargin(shape,{
                 length: 1,
                 width: 1,
                 height: 1,
                 radius: 1,
                 baseLength: 1,
                 baseWidth: 1
-              });
-              setIsUnfolded(false);
+              }, 1);
+              // setIsUnfolded(false);
             });
           });
 

@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 
+let shapes = []; // Store all shapes globally for easy access
+
 export default function createShape(type, shapeDimensions, scale, currentShape) {
   let geometry;
 
+  // Define geometry based on shape type
   switch (type) {
     case 'CUBOID':
       geometry = new THREE.BoxGeometry(
@@ -17,7 +20,7 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
     case 'CYLINDER':
       geometry = new THREE.CylinderGeometry(
         shapeDimensions.radius, // Top radius
-        shapeDimensions.radius, // Bottom radius (same for cylinder)
+        shapeDimensions.radius, // Bottom radius
         shapeDimensions.height, // Height
         32 // Segments
       );
@@ -30,7 +33,7 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
       );
       break;
     case 'PYRAMID':
-      // Create a custom pyramid geometry with a rectangular base
+      // Custom pyramid geometry with a rectangular base
       const halfLength = shapeDimensions.baseLength / 2;
       const halfWidth = shapeDimensions.baseWidth / 2;
       const height = shapeDimensions.height;
@@ -61,9 +64,11 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
       geometry.computeVertexNormals();
       break;
     default:
+      console.error("Unknown shape type:", type);
       return null;
   }
 
+  // Create a material
   const material = new THREE.MeshPhongMaterial({
     color: 0x00ff00,
     transparent: true,
@@ -71,11 +76,24 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
     wireframe: false,
   });
 
+  // Create the mesh
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.set(scale, scale, scale);
-  addShapeLabel(mesh, currentShape);
+  mesh.name = currentShape; // Assign a name for identification
+  shapes.push(mesh); // Add the shape to the global shapes array
+
   return mesh;
 }
+
+// Helper function to retrieve a shape by name or index
+export function getShapeByName(name) {
+  return shapes.find(shape => shape.name === name);
+}
+
+export function getShapeByIndex(index) {
+  return shapes[index];
+}
+
 
 const addShapeLabel = (shape, currentShape) => {
   const canvas = document.createElement('canvas');
