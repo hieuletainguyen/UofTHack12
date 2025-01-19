@@ -5,8 +5,8 @@ import App1 from './components/model';
 function App() {
   return (
     <div className="App">
-      <h1>Speech Assistant</h1>
-      <SpeechAssistant />
+      {/* <h1>Speech Assistant</h1> */}
+      {/* <SpeechAssistant /> */}
       <App1 />
     </div>
   );

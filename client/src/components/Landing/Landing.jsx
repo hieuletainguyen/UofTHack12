@@ -7,6 +7,9 @@ import cylinderblackmatte from "../../img/cylinder-black-matte-1.png"
 import coneblackmatte from "../../img/cone-black-matte-1.png"
 import logo from "../../img/group-4.png"
 import stupidsquare from "./../../shape1/roundcube-black-matte-1.png"
+import login from "../../img/login.png"
+import email_default from "../../img/email_default.png"
+import password_default from "../../img/password_default.png"
 
 <head>
   <style>
@@ -89,15 +92,18 @@ export const Landing = () => {
           <div className="label">
             <div className="text-wrapper">Email</div>
 
+            <img className="text-wrapper" src={email_default} alt="logo" />
+
           </div>
 
           <div className="label">
             <div className="text-wrapper22">Password</div>
+            <img className="text-wrapper22" src={password_default} alt="logo" />
           </div>
 
           <div className="label">
             <button onClick={handleSignIn}>
-              <div className="text-wrapper23">Log In</div>
+              <img className="text-wrapper23" src={login} alt="logo" />
             </button>
           </div>
 

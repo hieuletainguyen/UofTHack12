@@ -1,0 +1,11 @@
+Model Information:
+* title:	Anatomy of the skin
+* source:	https://sketchfab.com/3d-models/anatomy-of-the-skin-56c98c3710d94360a3481dc81aa4910f
+* author:	E-learning UMCG (https://sketchfab.com/eLearningUMCG)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Anatomy of the skin" (https://sketchfab.com/3d-models/anatomy-of-the-skin-56c98c3710d94360a3481dc81aa4910f) by E-learning UMCG (https://sketchfab.com/eLearningUMCG) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)

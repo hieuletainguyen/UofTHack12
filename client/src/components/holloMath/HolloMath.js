@@ -7,8 +7,8 @@ import calculateVolume from './utils/calculateVolume';
 import calculateSurfaceArea from './utils/calculateSA';
 import create2DNet from './utils/create2DNet';
 import createShape from './utils/createShape';
-// import drawHand from '../utils/drawHand';
-// import SpeechAssistant from './SpeechAssistant';
+import Astronomy from '../Astronomy/index.js';
+import Bio from '../Bio/index.js';
 
 // Constants for shapes and educational levels
 const SHAPES = [
@@ -19,11 +19,13 @@ const SHAPES = [
   'PYRAMID'
 ];
 
+const PREMIUM_SHAPES = [
+  'ASTRONOMY', 
+  'BIOLOGY',
+  // 'MECHANICS',
+];
+
 const DIFFICULTY_LEVELS = {
-  // ELEMENTARY: 'Elementary',
-  // MIDDLE_SCHOOL: 'Middle School',
-  // HIGH_SCHOOL: 'High School',
-  // UNIVERSITY: 'University', 
   FREE: 'Free',
   PREMIUM: 'Premium'
 };
@@ -50,9 +52,10 @@ const HoloMath = () => {
   const canvasRef = useRef(null);
   // State
   const [currentShape, setCurrentShape] = useState(SHAPES[0]);
+  const [currentPremiumShape, setCurrentPremiumShape] = useState(PREMIUM_SHAPES[0]);
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [isButtonHighlighted, setIsButtonHighlighted] = useState(false);
-  const [currentLevel, setCurrentLevel] = useState(DIFFICULTY_LEVELS.ELEMENTARY);
+  const [currentLevel, setCurrentLevel] = useState(DIFFICULTY_LEVELS.FREE);
   const [isPinching, setIsPinching] = useState(false);
   const [isUnfolded, setIsUnfolded] = useState(false);
   const [isUnfoldButtonHighlighted, setIsUnfoldButtonHighlighted] = useState(false);
@@ -397,7 +400,7 @@ const HoloMath = () => {
 
         lastPinchStateRef.current = isPinchGesture;
       } else {
-        // Right hand only handles rotation
+        // left hand only handles rotation
         if (currentObjectRef.current) {
           const prev = previousHandPositionRef.current;
           if (prev.x !== null) {
@@ -445,9 +448,11 @@ const HoloMath = () => {
     scene.add(directionalLight);
 
     // Create initial shape
-    const shape = createShape(currentShape, shapeDimensions, scale, currentShape);
-    scene.add(shape);
-    currentObjectRef.current = shape;
+    if (currentLevel === 'Free') {
+      const shape = createShape(currentShape, shapeDimensions, scale, currentShape);
+      scene.add(shape);
+      currentObjectRef.current = shape;
+    }
 
     // Animation loop
     const animate = () => {
@@ -508,7 +513,7 @@ const HoloMath = () => {
 
   // Update shape when changed
   useEffect(() => {
-    if (sceneRef.current && currentObjectRef.current) {
+    if (sceneRef.current && currentObjectRef.current && currentLevel === 'Free') {
       sceneRef.current.remove(currentObjectRef.current);
       const newShape = isUnfolded 
         ? create2DNet(currentShape, shapeDimensions, scale)
@@ -619,7 +624,7 @@ const HoloMath = () => {
 
       {/* Shape change button */}
       <div className="shape-buttons">
-        {SHAPES.map(shape => (
+        {currentLevel === 'Free' && SHAPES.map(shape => (
           <div 
             key={shape}
             className={`shape-button ${currentShape === shape ? 'active' : ''}`}
@@ -641,9 +646,24 @@ const HoloMath = () => {
             {shape.charAt(0) + shape.slice(1).toLowerCase()}
           </div>
         ))}
+
+        { currentLevel === "Premium" && 
+          PREMIUM_SHAPES.map(shape => (
+            <div 
+              key={shape}
+              className="shape-button"
+              data-shape={shape}
+              onClick={() => {
+                setCurrentPremiumShape(shape);
+              }}
+            >
+              {shape.charAt(0) + shape.slice(1).toLowerCase()}
+            </div>
+          ))
+        }
       </div>
 
-      {/* Unfold button */}
+      {currentLevel === 'Free' && 
       <div className="button-container">
         <div 
           id="unfold-button"
@@ -676,6 +696,7 @@ const HoloMath = () => {
           {isListening ? 'Voice Control (ON)' : 'Voice Control (OFF)'}
         </div>
       </div>
+      }
 
       {/* Level selector */}
       <div className="level-selector">
@@ -702,9 +723,9 @@ const HoloMath = () => {
         </div>
       </div>
 
-      {/* Dimension control buttons */}
+      {currentLevel === 'Free' && 
       <div className="dimension-controls">
-        <h4>Dimensions</h4>
+         <h4>Dimensions</h4>
         {currentShape === 'CUBOID' && (
           <>
             <div className="dimension-buttons">
@@ -867,7 +888,6 @@ const HoloMath = () => {
           </div>
         )}
 
-        {/* Add scale control */}
         <div className="scale-control">
           <label>Scale: </label>
           <input
@@ -885,18 +905,21 @@ const HoloMath = () => {
           <span>{scale.toFixed(1)}x</span>
         </div>
 
-        {/* Display volume */}
-        <div className="volume-display">
-          <p className={!isUnfolded ? 'highlighted' : ''}>
-            Volume: {volume.toFixed(2)} cubic units
-          </p>
-          <p className={isUnfolded ? 'highlighted' : ''}>
-            Surface Area: {surfaceArea.toFixed(2)} square units
-          </p>
-        </div>
-      </div>
+        {currentLevel === 'Free' && 
 
-      {/* Three.js container */}
+          <div className="volume-display">
+            <p className={!isUnfolded ? 'highlighted' : ''}>
+              Volume: {volume.toFixed(2)} cubic units
+            </p>
+            <p className={isUnfolded ? 'highlighted' : ''}>
+              Surface Area: {surfaceArea.toFixed(2)} square units
+            </p>
+          </div>
+        }
+      </div>
+      }
+
+      {/* For the camera feed + hand overlay */}
       <div ref={containerRef} className="canvas-container">
         <video
           ref={videoRef}
@@ -911,6 +934,16 @@ const HoloMath = () => {
           height={480}
         />
       </div>
+      {currentLevel === 'Premium' && currentPremiumShape === 'ASTRONOMY' && (
+        <div className="astronomy-container">
+          <Astronomy />
+        </div>
+      )}
+      {currentLevel === 'Premium' && currentPremiumShape === 'BIOLOGY' && (
+        <div className="bio-container">
+          <Bio />
+        </div>
+      )}
     </div>
   );
 };
