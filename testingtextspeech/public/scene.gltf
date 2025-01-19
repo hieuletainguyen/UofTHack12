@@ -3,7 +3,7 @@
     {
       "bufferView": 2,
       "componentType": 5126,
-      "count": 2052,
+      "count": 2048,
       "max": [
         1.0,
         1.0,
@@ -18,9 +18,9 @@
     },
     {
       "bufferView": 2,
-      "byteOffset": 24624,
+      "byteOffset": 24576,
       "componentType": 5126,
-      "count": 2052,
+      "count": 2048,
       "max": [
         1.0,
         1.0,
@@ -36,14 +36,14 @@
     {
       "bufferView": 1,
       "componentType": 5126,
-      "count": 2052,
+      "count": 2048,
       "max": [
-        1.3941099643707275,
-        0.9922500252723694
+        1.398460030555725,
+        0.9890499711036682
       ],
       "min": [
-        0.004550000187009573,
-        0.020250000059604645
+        0.0001900000061141327,
+        0.010950000025331974
       ],
       "type": "VEC2"
     },
@@ -58,8 +58,8 @@
     "extras": {
       "author": "Mieke Roth (https://sketchfab.com/miekeroth)",
       "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
-      "source": "https://sketchfab.com/3d-models/mars-2b46962637ee4311af8f0d1d0709fbb2",
-      "title": "Mars"
+      "source": "https://sketchfab.com/3d-models/jupiter-c5275eb96af245e4a8453837ac728a62",
+      "title": "jupiter"
     },
     "generator": "Sketchfab-12.67.0",
     "version": "2.0"
@@ -73,7 +73,7 @@
     },
     {
       "buffer": 0,
-      "byteLength": 16416,
+      "byteLength": 16384,
       "byteOffset": 47616,
       "byteStride": 8,
       "name": "floatBufferViews",
@@ -81,8 +81,8 @@
     },
     {
       "buffer": 0,
-      "byteLength": 49248,
-      "byteOffset": 64032,
+      "byteLength": 49152,
+      "byteOffset": 64000,
       "byteStride": 12,
       "name": "floatBufferViews",
       "target": 34962
@@ -90,7 +90,7 @@
   ],
   "buffers": [
     {
-      "byteLength": 113280,
+      "byteLength": 113152,
       "uri": "scene.bin"
     }
   ],
@@ -102,20 +102,26 @@
   ],
   "images": [
     {
-      "uri": "textures/mercurius_diffuse.png"
+      "uri": "textures/jupiter_diffuse.jpeg"
     },
     {
-      "uri": "textures/mercurius_specularGlossiness.png"
+      "uri": "textures/jupiter_specularGlossiness.png"
+    },
+    {
+      "uri": "textures/jupiter_occlusion.png"
     }
   ],
   "materials": [
     {
       "doubleSided": true,
       "emissiveFactor": [
-        0.0800000011920929,
-        0.0800000011920929,
-        0.0800000011920929
+        0.9,
+        0.9,
+        0.9
       ],
+      "emissiveTexture": {
+        "index": 0
+      },
       "extensions": {
         "KHR_materials_pbrSpecularGlossiness": {
           "diffuseFactor": [
@@ -127,23 +133,26 @@
           "diffuseTexture": {
             "index": 0
           },
-          "glossinessFactor": 0.28,
+          "glossinessFactor": 1.0,
           "specularFactor": [
-            0.03,
-            0.03,
-            0.03
+            0.020007621951219513,
+            0.020007621951219513,
+            0.020007621951219513
           ],
           "specularGlossinessTexture": {
             "index": 1
           }
         }
       },
-      "name": "mercurius"
+      "name": "jupiter",
+      "occlusionTexture": {
+        "index": 2
+      }
     }
   ],
   "meshes": [
     {
-      "name": "Mercury",
+      "name": "Sphere",
       "primitives": [
         {
           "attributes": {
@@ -221,11 +230,11 @@
       "children": [
         5
       ],
-      "name": "Mercury"
+      "name": "Sphere"
     },
     {
       "mesh": 0,
-      "name": "Mercury"
+      "name": "Sphere"
     }
   ],
   "samplers": [
@@ -253,6 +262,10 @@
     {
       "sampler": 0,
       "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
     }
   ]
 }
