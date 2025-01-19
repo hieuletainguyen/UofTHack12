@@ -27,6 +27,7 @@ const SpeechAssistant = (props) => {
       } else if (isActivated && lastTranscript !== triggerPhrase) {
         // Process recognized text only after activation
         setRecognizedText(lastTranscript);
+        console.log("sending to backend the last transcript", lastTranscript);
         sendToBackend(lastTranscript, currentState);
         setIsActivated(false); // Reset activation after processing a command
       }
@@ -60,7 +61,7 @@ const SpeechAssistant = (props) => {
         const data = await response.json();
         console.log('Response from backend:', data);
         setResponseText(data.response);
-        speakResponse(data.response);
+        speakResponse(data.speak);
         handleApiResponse(data);
       } else {
         console.error('Error from backend:', response.statusText);
@@ -108,8 +109,8 @@ const SpeechAssistant = (props) => {
   }, []);
 
   const handleApiResponse = (response) => {
-    if (response.success) {
-      onResponse(response.data);
+    if (response.response) {
+      onResponse(response.response);
     }
   };
 

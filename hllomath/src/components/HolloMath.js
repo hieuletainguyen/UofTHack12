@@ -7,7 +7,8 @@ import calculateVolume from '../utils/calculateVolume';
 import calculateSurfaceArea from '../utils/calculateSA';
 import create2DNet from '../utils/create2DNet';
 import createShape from '../utils/createShape';
-import SpeechAssistant from './SpeechAssistant';
+// import drawHand from '../utils/drawHand';
+// import SpeechAssistant from './SpeechAssistant';
 
 // Constants for shapes and educational levels
 const SHAPES = [
@@ -67,14 +68,131 @@ const HoloMathOrigin = () => {
   const [isHandDragging, setIsHandDragging] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [currentState, setCurrentState] = useState({
-    ...shapeDimensions,
+    dimensions: shapeDimensions,
     scale: scale,
     unfolded: isUnfolded,
     shape: currentShape
   });
 
+  // for the speech assistant
+  const [isListening, setIsListening] = useState(false);
+  const [isActivated, setIsActivated] = useState(false);
+  const [recognizedText, setRecognizedText] = useState('');
+  const [responseText, setResponseText] = useState('');
+  const recognitionRef = useRef(null);
+  const triggerPhrase = 'hey kid'; // Trigger phrase
+  // ==============================
+
+  // ============================== for testing the speech assistant ==
+  useEffect(() => {
+    // Initialize SpeechRecognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.continuous = true;
+
+    recognition.onresult = (event) => {
+      const lastTranscript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+      console.log('Recognized:', lastTranscript);
+      if (!isActivated && lastTranscript === triggerPhrase) {
+        // Trigger phrase detected
+        speakResponse('Yes Boss');
+        setIsActivated(true);
+      } else if (isActivated  && lastTranscript !== triggerPhrase) {
+        // Process recognized text only after activation
+        setRecognizedText(lastTranscript);
+        console.log("sending to backend the last transcript", lastTranscript);
+        sendToBackend(lastTranscript, currentState);
+        setIsActivated(false); // Reset activation after processing a command
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech Recognition Error:', event.error);
+    };
+
+    recognitionRef.current = recognition;
+
+    // Start speech recognition
+    recognition.start();
+
+    return () => {
+      recognition.stop();
+    };
+  }, [isActivated]);
+
+  const sendToBackend = async (text, state) => {
+    try {
+      const response = await fetch('http://localhost:9897/api/chat-bot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userInput: text, currentState: state }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Response from backend:', data);
+        setResponseText(data.response);
+        speakResponse(data.speak);
+        handleSpeechResponse(data.response);
+      } else {
+        console.error('Error from backend:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error connecting to backend:', error);
+    }
+  };
+
+  const speakResponse = (text) => {
+    const synth = window.speechSynthesis;
+    const voices = synth.getVoices();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voices[0]; // Use the first available voice
+    synth.speak(utterance);
+  };
+
+  const handleUserActivation = () => {
+    // Unlock voices after user interaction
+    window.speechSynthesis.getVoices(); // Warm-up voices
+  };
+
+  useEffect(() => {
+    // Attach activation handler
+    window.addEventListener('click', handleUserActivation);
+
+    return () => {
+      window.removeEventListener('click', handleUserActivation);
+    };
+  }, []);
+
+  // Add this useEffect to monitor isListening changes
+  useEffect(() => {
+    console.log("isListening changed to:", isListening);
+    
+    // Start or stop speech recognition based on isListening state
+    if (isListening) {
+      recognitionRef.current?.start();
+    } else {
+      recognitionRef.current?.stop();
+    }
+  }, [isListening]);
+
+  // Update the handleStartSpeech function
+  const handleStartSpeech = () => {
+    setIsListening(prevState => {
+      const newState = !prevState;
+      console.log("Toggling isListening to:", newState);
+      return newState;
+    });
+  };
+
+  // ============================== for testing the speech assistant ==
   // Add this function to draw the hand skeleton
-  const drawHand = (landmarks, isLeft) => {
+  
+  function drawHand (landmarks, isLeft) {
     const ctx = canvasRef.current.getContext('2d');
     const { width, height } = canvasRef.current;
 
@@ -192,10 +310,11 @@ const HoloMathOrigin = () => {
           if (!element) return;
           const rect = element.getBoundingClientRect();
           const isOverElement = x >= rect.left && x <= rect.right && 
-                              y >= rect.top && y <= rect.bottom;
+                                y >= rect.top && y <= rect.bottom;
 
           if (isOverElement) {
             element.classList.add('highlighted');
+            console.log("Button is hovered");
             if (isPinchGesture && !lastPinchStateRef.current) {
               onPinch();
             }
@@ -220,12 +339,14 @@ const HoloMathOrigin = () => {
             });
             setIsUnfolded(false);
             setCurrentState({
-              length: 1,
-              width: 1,
-              height: 1,
-              radius: 1,
-              baseLength: 1,
-              baseWidth: 1,
+              dimensions: {
+                length: 1,
+                width: 1,
+                height: 1,
+                radius: 1,
+                baseLength: 1,
+                baseWidth: 1
+              },
               scale: scale,
               unfolded: false,
               shape: shape
@@ -265,6 +386,11 @@ const HoloMathOrigin = () => {
         const zoomOutButton = document.getElementById('zoom-out-button');
         handleInteraction(zoomOutButton, () => {
           handleZoom('out');
+        });
+
+        const startSpeechButton = document.getElementById('start-speech');
+        handleInteraction(startSpeechButton, () => {
+          handleStartSpeech();
         });
 
         lastPinchStateRef.current = isPinchGesture;
@@ -442,7 +568,7 @@ const HoloMathOrigin = () => {
     console.log('Speech response:', response);
     
     // Update shape dimensions based on response
-    if (response.dimensions) {
+    if (response?.dimensions) {
       const { length, width, height, radius, baseLength, baseWidth } = response.dimensions;
       setShapeDimensions(prev => ({
         ...prev,
@@ -527,7 +653,7 @@ const HoloMathOrigin = () => {
         <div 
           id="zoom-in-button"
           className="zoom-button"
-          onClick={() => handleZoom('in')}
+          // onClick={() => handleZoom('in')}
         >
           🔍+
         </div>
@@ -535,9 +661,17 @@ const HoloMathOrigin = () => {
         <div 
           id="zoom-out-button"
           className="zoom-button"
-          onClick={() => handleZoom('out')}
+          // onClick={() => handleZoom('out')}
         >
           🔍-
+        </div>
+
+        <div 
+          id="start-speech"
+          className={`start-speech ${isListening ? 'active' : ''}`}
+          onClick={handleStartSpeech}
+        >
+          {isListening ? 'Voice Control (ON)' : 'Voice Control (OFF)'}
         </div>
       </div>
 
@@ -775,10 +909,6 @@ const HoloMathOrigin = () => {
           height={480}
         />
       </div>
-      <SpeechAssistant 
-        currentState={currentState} 
-        onResponse={handleSpeechResponse}
-      />
     </div>
   );
 };

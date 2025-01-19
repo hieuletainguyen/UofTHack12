@@ -124,10 +124,17 @@ export default function create2DNet(type, shapeDimensions, scale) {
         ];
 
         faces.forEach(face => {
-          const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(face.dimensions[0], face.dimensions[1]),
-            face.material
+          const planeGeometry = new THREE.PlaneGeometry(face.dimensions[0], face.dimensions[1]);
+          const plane = new THREE.Mesh(planeGeometry, face.material);
+          
+          // Add edges to the plane
+          const edges = new THREE.EdgesGeometry(planeGeometry);
+          const edgeLines = new THREE.LineSegments(
+            edges,
+            new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
           );
+          plane.add(edgeLines);  // Add edges as a child of the plane
+          
           plane.position.set(...face.position);
           plane.rotation.set(...face.rotation);
           group.add(plane);
@@ -179,6 +186,21 @@ export default function create2DNet(type, shapeDimensions, scale) {
         topCircle.position.set(0, shapeDimensions.height * 2, 0);
         bottomCircle.position.set(0, -shapeDimensions.height, 0);
         
+        // Add edges to the circles
+        const topCircleEdges = new THREE.EdgesGeometry(topCircle.geometry);
+        const topCircleLines = new THREE.LineSegments(
+          topCircleEdges,
+          new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
+        );
+        topCircle.add(topCircleLines);
+        
+        const bottomCircleEdges = new THREE.EdgesGeometry(bottomCircle.geometry);
+        const bottomCircleLines = new THREE.LineSegments(
+          bottomCircleEdges,
+          new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
+        );
+        bottomCircle.add(bottomCircleLines);
+        
         group.add(topCircle);
         group.add(bottomCircle);
         break;
@@ -221,6 +243,14 @@ export default function create2DNet(type, shapeDimensions, scale) {
         // Position base circle below the sector
         baseCircle.position.set(0, -shapeDimensions.height/2, 0);
         group.add(baseCircle);
+
+        // Add edges to the base circle
+        const baseCircleEdges = new THREE.EdgesGeometry(baseCircle.geometry);
+        const baseCircleLines = new THREE.LineSegments(
+          baseCircleEdges,
+          new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
+        );
+        baseCircle.add(baseCircleLines);
 
         break;
       }

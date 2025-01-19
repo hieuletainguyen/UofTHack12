@@ -332,3 +332,28 @@
   background: rgba(76, 175, 80, 0.5);
   transform: scale(1.1);
 } 
+
+.start-speech {
+  padding: 15px 30px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  pointer-events: auto;
+}
+.start-speech:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.05);
+}
+
+.start-speech.highlighted {
+  background: rgba(76, 175, 80, 0.5);
+  transform: scale(1.1);
+}
+
+.start-speech.active {
+  background: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+} 

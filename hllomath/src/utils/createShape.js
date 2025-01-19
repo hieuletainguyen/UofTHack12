@@ -71,6 +71,12 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
     });
 
     const mesh = new THREE.Mesh(geometry, material);
+    const edges = new THREE.EdgesGeometry(geometry);
+    const edgeLines = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
+    );
+    mesh.add(edgeLines);  // Add edges as a child of the mesh
     mesh.scale.set(scale, scale, scale);
     return mesh;
 };
