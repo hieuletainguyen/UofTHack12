@@ -3,10 +3,10 @@ import * as THREE from 'three';
 import { Hands } from '@mediapipe/hands';
 import { Camera } from '@mediapipe/camera_utils';
 import './HolloMath.css';
-import calculateVolume from '../utils/calculateVolume';
-import calculateSurfaceArea from '../utils/calculateSA';
-import create2DNet from '../utils/create2DNet';
-import createShape from '../utils/createShape';
+import calculateVolume from './utils/calculateVolume';
+import calculateSurfaceArea from './utils/calculateSA';
+import create2DNet from './utils/create2DNet';
+import createShape from './utils/createShape';
 // import drawHand from '../utils/drawHand';
 // import SpeechAssistant from './SpeechAssistant';
 
@@ -33,7 +33,7 @@ const PINCH_THRESHOLD = 0.1; // Increased threshold for easier detection
 // Add this constant for unfolding animations
 const UNFOLDING_DURATION = 1000; // 1 second for unfolding animation
 
-const HoloMathOrigin = () => {
+const HoloMath = () => {
   // Refs
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -915,4 +915,4 @@ const HoloMathOrigin = () => {
   );
 };
 
-export default HoloMathOrigin;
+export default HoloMath;

@@ -1,0 +1,38 @@
+.component {
+    height: 83px;
+    width: 390px;
+}
+
+.component .overlap-group {
+    height: 82px;
+    position: relative;
+}
+
+.component .rectangle {
+    background: linear-gradient(
+        180deg,
+        rgb(109.48, 235.45, 167.97) 0%,
+        rgb(63, 203, 128) 43.5%,
+        rgb(38.47, 105.4, 69.55) 100%
+    );
+    border-radius: 57px;
+    height: 72px;
+    left: 79px;
+    position: absolute;
+    top: 0;
+    width: 246px;
+}
+
+.component .menu {
+    color: #141414;
+    font-family: "Poppins-SemiBold", Helvetica;
+    font-size: 36px;
+    font-weight: 600;
+    left: 0;
+    letter-spacing: 0;
+    line-height: normal;
+    position: absolute;
+    text-align: center;
+    top: 7px;
+    width: 390px;
+}
