@@ -20,10 +20,12 @@ const SHAPES = [
 ];
 
 const DIFFICULTY_LEVELS = {
-  ELEMENTARY: 'Elementary',
-  MIDDLE_SCHOOL: 'Middle School',
-  HIGH_SCHOOL: 'High School',
-  UNIVERSITY: 'University'
+  // ELEMENTARY: 'Elementary',
+  // MIDDLE_SCHOOL: 'Middle School',
+  // HIGH_SCHOOL: 'High School',
+  // UNIVERSITY: 'University', 
+  FREE: 'Free',
+  PREMIUM: 'Premium'
 };
 
 const PINCH_THRESHOLD = 0.1; // Increased threshold for easier detection
