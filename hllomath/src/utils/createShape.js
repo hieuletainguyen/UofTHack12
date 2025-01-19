@@ -72,25 +72,6 @@ export default function createShape(type, shapeDimensions, scale, currentShape) 
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.scale.set(scale, scale, scale);
-    addShapeLabel(mesh, currentShape);
     return mesh;
 };
 
-const addShapeLabel = (shape, currentShape) => {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 128;
-    
-    context.font = 'Bold 32px Arial';
-    context.fillStyle = 'white';
-    context.textAlign = 'center';
-    context.fillText(currentShape, canvas.width/2, canvas.height/2);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(spriteMaterial);
-    sprite.position.y = 2;
-    sprite.scale.set(2, 1, 1);
-    shape.add(sprite);
-};

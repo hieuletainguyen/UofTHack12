@@ -1,5 +1,31 @@
 import * as THREE from 'three';
 
+const createSectorGeometry = (radius, angle) => {
+  const shape = new THREE.Shape();
+  const segments = 32;
+  const angleRad = angle * (Math.PI / 180);
+  
+  // Move to center
+  shape.moveTo(0, 0);
+  
+  // Draw first line
+  shape.lineTo(radius, 0);
+  
+  // Draw arc
+  const segments_1 = segments - 1;
+  for (let i = 1; i <= segments_1; i++) {
+    const theta = (i / segments) * angleRad;
+    shape.lineTo(
+      radius * Math.cos(theta),
+      radius * Math.sin(theta)
+    );
+  }
+  
+  // Close shape
+  shape.lineTo(0, 0);
+  
+  return new THREE.ShapeGeometry(shape);
+};
 
 export default function create2DNet(type, shapeDimensions, scale) {
     // Function to create textured material with area label
@@ -159,47 +185,43 @@ export default function create2DNet(type, shapeDimensions, scale) {
       }
 
       case 'CONE': {
-        const coneSlantHeight = Math.sqrt(
+        // Calculate areas
+        const slantHeight = Math.sqrt(
           Math.pow(shapeDimensions.height, 2) + Math.pow(shapeDimensions.radius, 2)
         );
         const arcLength = 2 * Math.PI * shapeDimensions.radius;
-        const sectorAngle = (arcLength / coneSlantHeight) * (180 / Math.PI);
-        
-        // Calculate areas
-        const lateralArea = Math.PI * shapeDimensions.radius * coneSlantHeight;
-        const baseArea = Math.PI * Math.pow(shapeDimensions.radius, 2);
+        const sectorAngle = (arcLength / slantHeight) * (180 / Math.PI);
 
-        // Create sector (lateral surface) with texture
+        // Create the sector (lateral surface)
         const sectorMaterial = createTexturedMaterial(
           arcLength,
-          coneSlantHeight,
-          lateralArea
+          slantHeight,
+          Math.PI * shapeDimensions.radius * slantHeight
         );
-        const sectorGeometry = new THREE.CircleGeometry(
-          coneSlantHeight,
-          32,
-          0,
-          sectorAngle * (Math.PI / 180)
+        const sector = new THREE.Mesh(
+          createSectorGeometry(slantHeight, sectorAngle),
+          sectorMaterial
         );
-        const sector = new THREE.Mesh(sectorGeometry, sectorMaterial);
         
-        // Create base circle with texture
+        // Position sector above the base
+        sector.position.set(0, shapeDimensions.height/2 + shapeDimensions.radius, 0);
+        group.add(sector);
+
+        // Create base circle
         const circleMaterial = createTexturedMaterial(
           shapeDimensions.radius * 2,
           shapeDimensions.radius * 2,
-          baseArea
+          Math.PI * Math.pow(shapeDimensions.radius, 2)
         );
         const baseCircle = new THREE.Mesh(
           new THREE.CircleGeometry(shapeDimensions.radius, 32),
           circleMaterial
         );
         
-        // Position the parts with proper spacing
-        sector.position.set(0, coneSlantHeight/2, 0);
-        baseCircle.position.set(0, -coneSlantHeight/2, 0);
-        
-        group.add(sector);
+        // Position base circle below the sector
+        baseCircle.position.set(0, -shapeDimensions.height/2, 0);
         group.add(baseCircle);
+
         break;
       }
 
@@ -323,6 +345,6 @@ export default function create2DNet(type, shapeDimensions, scale) {
       }
     }
 
-    group.scale.set(0.5, 0.5, 0.5);
+    group.scale.set(scale, scale, scale);
     return group;
 };
