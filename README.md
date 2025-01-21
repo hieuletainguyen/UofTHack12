@@ -51,7 +51,9 @@ Follow these steps to set up HoloMath on your local machine:
    npm install
    ```
 
-   ``` .env
+   Need to create a .env file inside the root of server folder:
+
+   ```.env
    OPENAI_API_KEY=
    ```
 
