@@ -8,9 +8,8 @@ import calculateSurfaceArea from './utils/calculateSA';
 import create2DNet from './utils/create2DNet';
 import createShape from './utils/createShape';
 import Astronomy from '../Astronomy/index.js';
-import Bio from '../Bio/index.js';
+import Bio from '../Biology/index.js';
 
-// Constants for shapes and educational levels
 const SHAPES = [
   'CUBOID',
   'SPHERE',
@@ -22,7 +21,6 @@ const SHAPES = [
 const PREMIUM_SHAPES = [
   'ASTRONOMY', 
   'BIOLOGY',
-  // 'MECHANICS',
 ];
 
 const DIFFICULTY_LEVELS = {
@@ -45,7 +43,6 @@ const HoloMath = () => {
   const currentObjectRef = useRef(null);
   const previousHandPositionRef = useRef({ x: null, y: null });
   const lastPinchStateRef = useRef(false);
-  const pinchStartXRef = useRef(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const draggedFaceRef = useRef(null);
@@ -85,7 +82,7 @@ const HoloMath = () => {
   const [recognizedText, setRecognizedText] = useState('');
   const [responseText, setResponseText] = useState('');
   const recognitionRef = useRef(null);
-  const triggerPhrase = 'hey kid'; // Trigger phrase
+  const triggerPhrase = 'banana'; 
   // ==============================
 
   // ============================== for testing the speech assistant ==
@@ -101,15 +98,13 @@ const HoloMath = () => {
       const lastTranscript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
       console.log('Recognized:', lastTranscript);
       if (!isActivated && lastTranscript === triggerPhrase) {
-        // Trigger phrase detected
         speakResponse('Yes Boss');
         setIsActivated(true);
       } else if (isActivated  && lastTranscript !== triggerPhrase) {
-        // Process recognized text only after activation
         setRecognizedText(lastTranscript);
         console.log("sending to backend the last transcript", lastTranscript);
         sendToBackend(lastTranscript, currentState);
-        setIsActivated(false); // Reset activation after processing a command
+        setIsActivated(false); 
       }
     };
 
@@ -119,7 +114,6 @@ const HoloMath = () => {
 
     recognitionRef.current = recognition;
 
-    // Start speech recognition
     recognition.start();
 
     return () => {
@@ -195,8 +189,6 @@ const HoloMath = () => {
   };
 
   // ============================== for testing the speech assistant ==
-  // Add this function to draw the hand skeleton
-  
   function drawHand (landmarks, isLeft) {
     const ctx = canvasRef.current.getContext('2d');
     const { width, height } = canvasRef.current;
@@ -525,7 +517,6 @@ const HoloMath = () => {
     }
   }, [currentShape, shapeDimensions, scale, isUnfolded]);
 
-  // Add effect to update volume when dimensions or shape changes
   useEffect(() => {
     const newVolume = calculateVolume(currentShape, shapeDimensions);
     const newSurfaceArea = calculateSurfaceArea(currentShape, shapeDimensions);
@@ -533,7 +524,6 @@ const HoloMath = () => {
     setSurfaceArea(newSurfaceArea * Math.pow(scale, 2));
   }, [currentShape, shapeDimensions, scale]);
 
-  // Add this function to handle button clicks
   const handleDimensionButtonClick = (dimension, value) => {
     setShapeDimensions(prev => ({
       ...prev,
@@ -541,7 +531,6 @@ const HoloMath = () => {
     }));
   };
 
-  // Add zoom functions
   const handleZoom = (direction) => {
     if (direction === 'in') {
       // Check if we can still zoom in
@@ -570,11 +559,9 @@ const HoloMath = () => {
     }
   };
 
-  // Add this function to handle the speech response
   const handleSpeechResponse = (response) => {
     console.log('Speech response:', response);
-    
-    // Update shape dimensions based on response
+
     if (response?.dimensions) {
       const { length, width, height, radius, baseLength, baseWidth } = response.dimensions;
       setShapeDimensions(prev => ({
