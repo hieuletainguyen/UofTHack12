@@ -100,6 +100,7 @@ Login Page
 
 Tutorial Page
 
+![fix4 (1)](https://github.com/user-attachments/assets/2a911adc-9bfd-4bc5-b3ca-81672b548054)
 
 
 Interactive Page
